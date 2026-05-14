@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-
+import requests
 
 class Report:
     def __init__(self, date: str, time: str, plant_name: str, power: str):
@@ -59,3 +59,10 @@ def parse_data(lines: list, target_date: date):
         print(e)
 
     return today_reports, yesterday_reports
+
+def parse_report(target_date: date):
+    response = requests.get()
+    lines = response.text.splitlines()
+
+    for line in lines[:10]:
+        print(line)

@@ -10,22 +10,36 @@ load_dotenv()
 
 # MARK: GLOBALS
 
-WEBHOOK_URL = getenv("WEBHOOK_URL")
-if not WEBHOOK_URL:
-    print("WEBHOOK_URL not set in .env file.")
+WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
+WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+
+if not WEBHOOK_URL_POWER:
+    print("WEBHOOK_URL_POWER not set in .env file.")
     exit()
 
-DATA_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
+if not WEBHOOK_URL_REPORT:
+    print("WEBHOOK_URL_REPORT not set in .env file.")
+    exit()
+
+POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
+REPORT_URL="https://www.nrc.gov/reading-rm/doc-collections/event-status/event/event-notification-rpt-lastmonth.txt"
 
 BUFFER_SIZE = 1950 # discord has 2000 limit
 WAIT_TIME = 5 #seconds
 
 # MARK: DATA FETCHING
 try:
-    response = requests.get(DATA_URL)
+    response = requests.get(POWER_URL)
+    response_report = requests.get(REPORT_URL)
+
     if response.status_code != 200:
-        print(f"Failed to fetch data: {response.status_code}")
+        print(f"Failed to fetch power data: {response.status_code}")
         exit()
+
+    if response_report.status_code != 200:
+        print(f"Failed to fetch report data: {response.status_code}")
+        exit()
+
 
 except Exception as e:
     print(f"Error fetching data: {e}")
@@ -96,7 +110,7 @@ try:
             "content": chunk
         }
 
-        response = requests.post(WEBHOOK_URL, json=payload)
+        response = requests.post(WEBHOOK_URL_POWER, json=payload)
 
         if response.status_code == 204:
             print("Message sent successfully.")
@@ -107,3 +121,5 @@ try:
         sleep(WAIT_TIME)
 except Exception as e:
     print(f"Error sending message: {e}")
+
+# Parsing report data
