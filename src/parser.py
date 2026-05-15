@@ -52,11 +52,11 @@ def parse_data(lines: list, target_date: date):
                 # once we're past yesterday we can stops
                 if yesterday_reports:
                     break
+    
 
     except Exception as e:
         print(f"Error parsing line: {line}")
         print(f"Data: {data}")
         print(e)
 
-    return today_reports, yesterday_reports
 
