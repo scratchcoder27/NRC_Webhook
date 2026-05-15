@@ -3,10 +3,6 @@
     {
       "description": "## Emergency class: emssss\nDate: datessss\nTime: timessss\nState: statessss\nCity: cityssss\n10 CFR Section: sectionssss\n\n",
       "title": "Report numberssss"
-    },
-    {
-      "description": "```ansi\ntextssss\n```",
-      "title": "Report text"
     }
   ]
 }
