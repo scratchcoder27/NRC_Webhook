@@ -1,57 +1,39 @@
 import requests
 from bs4 import BeautifulSoup
+url_test="https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
+url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
+response = requests.get(url_test)
 
-response = requests.get("https://www.nrc.gov/reading-rm/doc-collections/event-status/event/event-notification-rpt-lastmonth.txt")
+soup = BeautifulSoup(response.text, "lxml")
+all_event = soup.find("div", class_="event-summary number text-center") 
+raw_doc_numbers = [anchor.text for anchor in all_event]
+print(raw_doc_numbers)
+doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
+print(doc_numbers)
 
-text = response.text
+cycle=0
+for number in doc_numbers:
+    data={}
+    print(number)
+    findit = soup.find("div", id=f"en{doc_numbers[cycle]}", class_="grid border") 
+    for b in findit.find_all("b"):
+        key = b.get_text(strip=True).replace(":", "")
+        value = b.next_sibling
+        if isinstance(value, str):
+            value = value.strip()
+        else:
+            value = ""
+        data[key] = value
+    
+    text = soup.select("div.border")
+    
 
-records = []
-current_record = ""
+    print(data)
+    print(text)
+    #print(text2)
+with open("nrc_events.txt", "w", encoding="utf-8") as f:
+    for i, event in enumerate(text, start=1):
+        text = event.get_text("\n", strip=True)
 
-for line in text.splitlines():
-
-    if line.startswith((
-        "Power Reactor|",
-        "Agreement State|",
-        "Non-Agreement State|",
-        "Part 21|",
-        "Fuel Cycle|",
-        "Materials|"
-    )):
-
-        if current_record:
-            records.append(current_record)
-
-        current_record = line
-
-    else:
-        current_record += "\n" + line
-
-if current_record:
-    records.append(current_record)
-
-# Header
-header = records.pop(0)
-
-columns = header.split("|")
-
-expected_splits = len(columns) - 1
-
-for record in records:
-
-    try:
-        parts = record.split("|", expected_splits)
-
-        data = dict(zip(columns, parts))
-
-        print(data["En No"])
-        print(data["Site Name"])
-        print(data["State Cd"])
-
-        # FULL EVENT TEXT
-        print(data["Event Text"][:500])
-
-        print("=" * 60)
-
-    except Exception as e:
-        print("Parse failed:", e)
+        f.write(f"===== EVENT {i} =====\n")
+        f.write(text + "\n\n")

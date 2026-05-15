@@ -49,7 +49,7 @@ def parse_data(lines: list, target_date: date):
                 yesterday_reports[report.plant_name] = report
 
             elif report.date != today_str:
-                # once we're past yesterday we can stop
+                # once we're past yesterday we can stops
                 if yesterday_reports:
                     break
 
@@ -60,9 +60,3 @@ def parse_data(lines: list, target_date: date):
 
     return today_reports, yesterday_reports
 
-def parse_report(target_date: date):
-    response = requests.get()
-    lines = response.text.splitlines()
-
-    for line in lines[:10]:
-        print(line)

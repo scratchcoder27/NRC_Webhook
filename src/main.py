@@ -22,7 +22,7 @@ if not WEBHOOK_URL_REPORT:
     exit()
 
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
-REPORT_URL="https://www.nrc.gov/reading-rm/doc-collections/event-status/event/event-notification-rpt-lastmonth.txt"
+REPORT_URL="https://www.nrc.gfov/reading-rm/doc-collections/event-status/event/en.html"
 
 BUFFER_SIZE = 1950 # discord has 2000 limit
 WAIT_TIME = 5 #seconds
