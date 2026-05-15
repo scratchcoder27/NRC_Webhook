@@ -23,7 +23,7 @@ class Report:
 
 
 # MARK: PARSING
-def parse_data(lines: list, target_date: date):
+def parse_data(lines: list, target_date: date) -> tuple:
     today_str = target_date.strftime("%-m/%-d/%Y")
     yesterday_str = (target_date - timedelta(days=1)).strftime("%-m/%-d/%Y")
 
@@ -60,4 +60,5 @@ def parse_data(lines: list, target_date: date):
         print(f"Data: {data}")
         print(e)
 
-
+    
+    return today_reports, yesterday_reports
