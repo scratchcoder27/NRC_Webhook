@@ -1,4 +1,5 @@
 .venv/*
 .env
 testingdata.txt
-src/__pycache__/*src/nrc_events.txt
+nrc_events.txt
+src/__pycache__/*

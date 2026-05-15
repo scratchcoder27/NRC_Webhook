@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 import requests
+from colors import *
 
 class Report:
     def __init__(self, date: str, time: str, plant_name: str, power: str):
@@ -9,15 +10,15 @@ class Report:
         self.power = power
 
     def to_string(self, changed=False):
-        power_color = "\x1b[2;31m" if self.power != "100" else "\x1b[2;32m"
+        power_color = COLOR_RED if self.power != "100" else COLOR_GREEN
 
-        bold_begin = "\x1b[1m" if changed else ""
-        bold_end = "\x1b[0m" if changed else ""
+        bold_begin = COLOR_BOLD if changed else ""
+        bold_end = COLOR_RESET if changed else ""
 
         return (
-            f"\x1b[2;36m[{self.time}]\x1b[0m "
-            f"\x1b[2;34m{self.plant_name}\x1b[0m : "
-            f"{bold_begin}{power_color}{self.power}%{bold_end}\x1b[0m"
+            f"{COLOR_CYAN}[{self.time}]{COLOR_RESET} "
+            f"{COLOR_BLUE}{self.plant_name}{COLOR_RESET} : "
+            f"{bold_begin}{power_color}{self.power}%{bold_end}{COLOR_RESET}"
         )
 
 

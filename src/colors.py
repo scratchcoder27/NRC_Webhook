@@ -1,0 +1,9 @@
+
+COLOR_RED = "\x1b[2;31m"
+COLOR_GREEN = "\x1b[2;32m"
+COLOR_CYAN = "\x1b[2;36m"
+COLOR_BLUE = "\x1b[2;34m"
+
+
+COLOR_BOLD = "\x1b[1m"
+COLOR_RESET = "\x1b[0m"
