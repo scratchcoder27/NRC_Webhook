@@ -9,11 +9,11 @@ class Report:
         self.plant_name = plant_name
         self.power = power
 
-    def to_string(self, changed=False):
+    def to_string(self, changed=False, yesterday_power=0):
         power_color = COLOR_RED if self.power != "100" else COLOR_GREEN
 
         bold_begin = COLOR_BOLD if changed else ""
-        bold_end = COLOR_RESET if changed else ""
+        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[original: {yesterday_power}]{COLOR_RESET}" if changed else ""
 
         return (
             f"{COLOR_CYAN}[{self.time}]{COLOR_RESET} "

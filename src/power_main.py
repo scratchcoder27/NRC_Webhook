@@ -62,7 +62,7 @@ except Exception as e:
 
 # MARK: DATA PREPARATION
 HEADER = (
-    f"**Reactor Status for {date.today().strftime("%B %d, %Y")}** *(updated: <t:{int(time())}:t>)*"
+    f"**Reactor Status for {date.today().strftime("%B %d, %Y")}** *(updated: <t:{int(time())}:R>)*"
 )
 
 buffer = []
@@ -86,7 +86,7 @@ for plant_name, report in today_reports.items():
         if yesterday_report.power != report.power:
             changed = True
 
-    report_str = report.to_string(changed)
+    report_str = report.to_string(changed, yesterday_report.power)
 
     if len_string + len(report_str) + 1 + 4 > BUFFER_SIZE:
         buffer.append(string_payload + "\n```")
@@ -114,7 +114,7 @@ try:
         response = requests.post(WEBHOOK_URL_POWER, json=payload)
 
         if response.status_code == 204:
-            print("Message sent successfully.")
+            print("Packet sent successfully.")
         else:
             print(f"Failed: {response.status_code}")
             print(response.text)
