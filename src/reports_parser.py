@@ -30,7 +30,7 @@ for number in doc_numbers:
 
     print(data)
     print(text)
-    #print(text2)
+    
 with open("nrc_events.txt", "w", encoding="utf-8") as f:
     for i, event in enumerate(text, start=1):
         text = event.get_text("\n", strip=True)

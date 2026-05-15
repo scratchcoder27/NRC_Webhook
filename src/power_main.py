@@ -21,6 +21,9 @@ if not WEBHOOK_URL_REPORT:
     print("WEBHOOK_URL_REPORT not set in .env file.")
     exit()
 
+import colors
+print(f'{colors.COLOR_RED}This text is in red{colors.COLOR_RESET}')
+
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
 REPORT_URL="https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
