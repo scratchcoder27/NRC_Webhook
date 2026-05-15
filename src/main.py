@@ -1,4 +1,4 @@
-from time import sleep
+from time import sleep, time
 from datetime import date
 
 import requests
@@ -44,10 +44,11 @@ except Exception as e:
     print(f"Error parsing data: {e}")
     exit()
 
+if response_lines:    del response_lines # free data
+
 # MARK: DATA PREPARATION
 HEADER = (
-    "**Reactor Status for** "
-    + date.today().strftime("%B %d, %Y")
+    f"**Reactor Status for {date.today().strftime("%B %d, %Y")}** *(updated: <t:{int(time())}:F>)*"
 )
 
 buffer = []

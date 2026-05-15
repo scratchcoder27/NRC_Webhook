@@ -52,10 +52,15 @@ def parse_data(lines: list, target_date: date):
                 # once we're past yesterday we can stop
                 if yesterday_reports:
                     break
+    
 
     except Exception as e:
         print(f"Error parsing line: {line}")
         print(f"Data: {data}")
         print(e)
 
+    if len(today_reports) < 1:
+        print("No reports found, the website has not updated yet.")
+        exit()
+    
     return today_reports, yesterday_reports
