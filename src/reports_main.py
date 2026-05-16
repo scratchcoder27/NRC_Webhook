@@ -13,13 +13,15 @@ url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/readi
 url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
+URL = url
+
 load_dotenv()
 
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
 BUFFER_SIZE = 600 # discord has 1000 limit for embed fields
 ACTUAL_BUFFER_SIZE = BUFFER_SIZE # not needed anymore
 JSON_FILE_PATH = "src/facility.json"
-SLEEP_TIME = 3 # secs prev: 600
+SLEEP_TIME = 3 # secs
 DEBUG = True
 
 # MARK: HELPERS
@@ -43,7 +45,7 @@ def replace_text(obj, old, new):
 
 # MARK: GET DATA
 try:
-    response = requests.get(url_test)
+    response = requests.get(URL)
     print("Successfully fetched data")
 except Exception as e:
     print("Error while getting data: " + e)
@@ -140,6 +142,23 @@ for cycle, number in enumerate(doc_numbers):
             value = value.strip()
         else:
             value = ""
+        
+        if key == "Emergency Class": # because it isn't bold unlike the others
+            cfr_text = field.parent.get_text("\n", strip=True)
+
+            lines = [
+                line.strip()
+                for line in cfr_text.splitlines()
+                if line.strip()
+            ]
+
+            try:
+                cfr_index = lines.index("10 CFR Section:")
+                event_data["CFR Section"] = " ".join(
+                    lines[cfr_index + 1:]
+                )
+            except (ValueError, IndexError):
+                event_data["CFR Section"] = ""
 
         event_data[key] = value
 
@@ -166,6 +185,24 @@ for cycle, number in enumerate(doc_numbers):
             facility,
             "<number>",
             number
+        )
+
+        facility = replace_text(
+            facility,
+            "<reporg>",
+            event_data["Rep Org"]
+        )
+
+        facility = replace_text(
+            facility,
+            "<concperson>",
+            event_data["Person (Organization)"]
+        )
+
+        facility = replace_text(
+            facility,
+            "<hqofficer>",
+            event_data["HQ OPS Officer"]
         )
 
         facility = replace_text(
@@ -212,6 +249,12 @@ for cycle, number in enumerate(doc_numbers):
 
         facility = replace_text(
             facility,
+            "<county>",
+            event_data["County"]
+        )
+
+        facility = replace_text(
+            facility,
             "<emergencyClass>",
             event_data["Emergency Class"]
         )
@@ -220,11 +263,11 @@ for cycle, number in enumerate(doc_numbers):
         facility = replace_text(
             facility,
             "<section>",
-            "<unimplemented>"
+            event_data["CFR Section"]
         )
 
     except KeyError as e:
-        print(f"Malformed event data: missing {e}")
+        print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
         continue
 
     # MARK: INSERT CHUNKS
@@ -271,16 +314,9 @@ for event in parsed_events:
             print(response.text)
 
     except Exception as e:
-        print(f"Error sending embed: {e}")
+        print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
 
     sleep(SLEEP_TIME)
 
 # MARK: DEBUG
-if not DEBUG:    exit()
-
-# with open("nrc_events.txt", "w", encoding="utf-8") as f:
-#     for i, event in enumerate(odd_text, start=1):
-#         odd_text = event.get_text("\n", strip=True)
-
-#         f.write(f"===== EVENT {i} =====\n")
-#         f.write(odd_text + "\n\n")
+# if not DEBUG:    exit()
