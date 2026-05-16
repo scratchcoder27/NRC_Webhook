@@ -5,17 +5,17 @@
       "fields": [
         {
           "name": "Location info",
-          "value": "State: <state>\nCity: <city>\nRegion: <region>",
+          "value": "```State: <state>\nCity: <city>\nRegion: <region>```",
           "inline": true
         },
         {
           "name": "Notification Info",
-          "value": "Event Date: <date>\nEvent Time: <time>\nNRC Notified By: <personNotified>\n",
+          "value": "```Event Date: <date>\nEvent Time: <time>\nNRC Notified By: <personNotified>\n```",
           "inline": true
         },
         {
           "name": "Emergency Class",
-          "value": "Emergency Class:<emergencyClass>\n10 CFR Section:<section>",
+          "value": "```Emergency Class:<emergencyClass>\n10 CFR Section:<section>```",
           "inline": false
         }
       ]
