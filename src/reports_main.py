@@ -5,6 +5,8 @@ import json
 from time import sleep
 from os import getenv
 from dotenv import load_dotenv
+import copy
+import colors
 
 # MARK: CONFIG
 url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
@@ -13,9 +15,9 @@ url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html
 
 load_dotenv()
 
-WEBHOOK_URL_REPORT=getenv("WEBHOOK_URL_REPORT")
-BUFFER_SIZE = 1950 # discord has 2000 limit
-ACTUAL_BUFFER_SIZE = 1950 - len(">>> \n")
+WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+BUFFER_SIZE = 600 # discord has 1000 limit for embed fields
+ACTUAL_BUFFER_SIZE = BUFFER_SIZE # not needed anymore
 JSON_FILE_PATH = "src/facility.json"
 SLEEP_TIME = 3 # secs prev: 600
 DEBUG = True
@@ -51,18 +53,28 @@ if response.status_code != 200:
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
+
     chunks = []
     current_chunk = ""
 
     for line in lines:
 
-        # Normalize whitespace
         line = line.strip()
 
-        # Skip empty lines
         if not line:
             continue
 
+        # Split oversized individual lines
+        while len(line) > max_size:
+
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = ""
+
+            chunks.append(line[:max_size])
+            line = line[max_size:]
+
+        # Normal accumulation
         if len(current_chunk) + len(line) + 1 > max_size:
 
             if current_chunk:
@@ -71,12 +83,12 @@ def chunk_lines(lines, max_size):
             current_chunk = line
 
         else:
+
             if current_chunk:
                 current_chunk += "\n" + line
             else:
                 current_chunk = line
 
-    # Append final chunk
     if current_chunk:
         chunks.append(current_chunk)
 
@@ -94,6 +106,12 @@ parsed_events = []
 
 text_blocks = soup.select("div.border")
 odd_text = text_blocks[1::2]
+
+try:
+    with open(JSON_FILE_PATH, "r") as f:
+        schema = json.load(f)
+except FileNotFoundError:
+    print("The facility.json file does not exist")
 
 for cycle, number in enumerate(doc_numbers):
 
@@ -142,48 +160,66 @@ for cycle, number in enumerate(doc_numbers):
 
     # MARK: INTERPRET DATA
     try:
-        with open(JSON_FILE_PATH, "r") as f:
-            facility = json.load(f)
+        facility = copy.deepcopy(schema)
 
         facility = replace_text( # formatter likes it this way
             facility,
-            "numberssss",
+            "<number>",
             number
         )
 
         facility = replace_text(
             facility,
-            "datessss",
+            "<date>",
             event_data["Event Date"]
         )
 
         facility = replace_text(
             facility,
-            "timessss",
+            "<time>",
             event_data["Event Time"]
         )
 
         facility = replace_text(
             facility,
-            "emssss",
+            "<personNotified>",
+            event_data["NRC Notified By"]
+        )
+
+        facility = replace_text(
+            facility,
+            "<emergencyClass>",
             event_data["Emergency Class"]
         )
 
         facility = replace_text(
             facility,
-            "statessss",
+            "<state>",
             event_data["State"]
         )
 
         facility = replace_text(
             facility,
-            "cityssss",
+            "<city>",
             event_data["City"]
         )
 
         facility = replace_text(
             facility,
-            "sectionssss",
+            "<region>",
+            event_data["Region"]
+        )
+
+        facility = replace_text(
+            facility,
+            "<emergencyClass>",
+            event_data["Emergency Class"]
+        )
+
+
+        facility = replace_text(
+            facility,
+            "<section>",
             "<unimplemented>"
         )
 
@@ -191,12 +227,30 @@ for cycle, number in enumerate(doc_numbers):
         print(f"Malformed event data: missing {e}")
         continue
 
+    # MARK: INSERT CHUNKS
+    embed = facility["embeds"][0]
+
+    if "fields" not in embed:
+        embed["fields"] = []
+
+    for index, chunk in enumerate(chunks):
+
+        embed["fields"].append({
+            "name": (
+                "Event Text"
+                if index == 0
+                else ""
+            ),
+            "value": f"```txt\n{chunk}\n```",
+            "inline": False
+        })
+
     parsed_events.append({
         "number": number,
         "embed": facility,
-        "chunks": chunks,
         "metadata": event_data
     })
+
 
 # MARK: SENDING DATA
 for event in parsed_events:
@@ -205,7 +259,6 @@ for event in parsed_events:
 
     # Send embed
     try:
-
         response = requests.post(
             WEBHOOK_URL_REPORT,
             json=event["embed"]
@@ -214,7 +267,7 @@ for event in parsed_events:
         if response.status_code == 204:
             print("Embed sent successfully.")
         else:
-            print(f"Embed failed: {response.status_code}")
+            print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
             print(response.text)
 
     except Exception as e:
@@ -222,36 +275,12 @@ for event in parsed_events:
 
     sleep(SLEEP_TIME)
 
-    for chunk in event["chunks"]:
-
-        payload = {
-            "content": f">>> {chunk}"
-        }
-
-        try:
-
-            response = requests.post(
-                WEBHOOK_URL_REPORT,
-                json=payload
-            )
-
-            if response.status_code == 204:
-                print("Chunk sent successfully.")
-            else:
-                print(f"Chunk failed: {response.status_code}")
-                print(response.text)
-
-        except Exception as e:
-            print(f"Error sending chunk: {e}")
-
-        sleep(SLEEP_TIME)
-
 # MARK: DEBUG
 if not DEBUG:    exit()
 
-with open("nrc_events.txt", "w", encoding="utf-8") as f:
-    for i, event in enumerate(odd_text, start=1):
-        odd_text = event.get_text("\n", strip=True)
+# with open("nrc_events.txt", "w", encoding="utf-8") as f:
+#     for i, event in enumerate(odd_text, start=1):
+#         odd_text = event.get_text("\n", strip=True)
 
-        f.write(f"===== EVENT {i} =====\n")
-        f.write(odd_text + "\n\n")
+#         f.write(f"===== EVENT {i} =====\n")
+#         f.write(odd_text + "\n\n")

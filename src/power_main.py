@@ -3,6 +3,7 @@ from datetime import date
 
 import requests
 import power_parser
+import colors
 
 from os import getenv
 from dotenv import load_dotenv
@@ -71,6 +72,11 @@ string_payload = (
     HEADER +
     "\n```ansi\n"
 )
+
+# check if empty
+if len(today_reports) == 0:
+    string_payload = f"{HEADER}\n ```ansi\n{colors.COLOR_RED}The NRC website has not updated yet{colors.COLOR_RESET}"        
+
 
 len_string = len(string_payload)
 
