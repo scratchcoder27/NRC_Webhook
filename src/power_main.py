@@ -12,18 +12,11 @@ load_dotenv()
 # MARK: GLOBALS
 
 WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
-WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
-
 if not WEBHOOK_URL_POWER:
     print("WEBHOOK_URL_POWER not set in .env file.")
     exit()
 
-if not WEBHOOK_URL_REPORT:
-    print("WEBHOOK_URL_REPORT not set in .env file.")
-    exit()
-
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
-REPORT_URL="https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
 BUFFER_SIZE = 1950 # discord has 2000 limit
 WAIT_TIME = 5 #seconds
@@ -31,15 +24,10 @@ WAIT_TIME = 5 #seconds
 # MARK: DATA FETCHING
 try:
     response = requests.get(POWER_URL)
-    # response_report = requests.get(REPORT_URL)
 
     if response.status_code != 200:
         print(f"Failed to fetch power data: {response.status_code}")
         exit()
-
-    # if response_report.status_code != 200:
-    #     print(f"Failed to fetch report data: {response.status_code}")
-    #     exit()
 
 
 except Exception as e:
@@ -51,19 +39,16 @@ print("Data fetched successfully.")
 response_lines = [line.strip() for line in response.text.splitlines()]
 
 try:
-    today_reports, yesterday_reports = power_parser.parse_data(
-        response_lines,
-        date.today()
-    )
+    today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
 except Exception as e:
     print(f"Error parsing data: {e}")
     exit()
 
-# if response_lines:    del response_lines # free data
+if response_lines:    del response_lines # free data
 
 # MARK: DATA PREPARATION
 HEADER = (
-    f"**Reactor Status for {date.today().strftime("%B %d, %Y")}** *(updated: <t:{int(time())}:R>)*"
+    f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)*"
 )
 
 buffer = []
@@ -72,11 +57,6 @@ string_payload = (
     HEADER +
     "\n```ansi\n"
 )
-
-# check if empty
-if len(today_reports) == 0:
-    string_payload = f"{HEADER}\n ```ansi\n{colors.COLOR_RED}The NRC website has not updated yet{colors.COLOR_RESET}"        
-
 
 len_string = len(string_payload)
 
@@ -128,5 +108,3 @@ try:
         sleep(WAIT_TIME)
 except Exception as e:
     print(f"Error sending message: {e}")
-
-# Parsing report data

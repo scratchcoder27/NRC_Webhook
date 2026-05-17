@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import requests
 from colors import *
 
@@ -9,11 +9,11 @@ class Report:
         self.plant_name = plant_name
         self.power = power
 
-    def to_string(self, changed=False, yesterday_power=0):
+    def to_string(self, changed=False, previous_day_power=0):
         power_color = COLOR_RED if self.power != "100" else COLOR_GREEN
 
         bold_begin = COLOR_BOLD if changed else ""
-        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[original: {yesterday_power}]{COLOR_RESET}" if changed else ""
+        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[original: {previous_day_power}]{COLOR_RESET}" if changed else ""
 
         return (
             f"{COLOR_CYAN}[{self.time}]{COLOR_RESET} "
@@ -23,12 +23,12 @@ class Report:
 
 
 # MARK: PARSING
-def parse_data(lines: list, target_date: date) -> tuple:
-    today_str = target_date.strftime("%-m/%-d/%Y")
-    yesterday_str = (target_date - timedelta(days=1)).strftime("%-m/%-d/%Y")
+def parse_data(lines: list) -> tuple:
+    current_day_str : str = None
+    previous_day_str : str = None
 
-    today_reports = {}
-    yesterday_reports = {}
+    current_day_reports = {}
+    previous_day_reports = {}
 
     try:
         for line in lines[1:]:  # skip header
@@ -43,15 +43,24 @@ def parse_data(lines: list, target_date: date) -> tuple:
                 data[2]
             )
 
-            if report.date == today_str:
-                today_reports[report.plant_name] = report
+            if current_day_str == None: # only the first one
+                current_day_str = report.date
+                try:
+                    current_day = datetime.strptime(current_day_str, "%m/%d/%Y").date()
+                    previous_day_str = (current_day - timedelta(days=1)).strftime("%-m/%-d/%Y")
+                except Exception:
+                    print("Invalid date parsed: " + current_day_str)
+                
 
-            elif report.date == yesterday_str:
-                yesterday_reports[report.plant_name] = report
+            if report.date == current_day_str:
+                current_day_reports[report.plant_name] = report
 
-            elif report.date != today_str:
-                # once we're past yesterday we can stops
-                if yesterday_reports:
+            elif report.date == previous_day_str:
+                previous_day_reports[report.plant_name] = report
+
+            elif report.date != current_day_str:
+                # once we're past previous_day we can stops
+                if previous_day_reports:
                     break
     
 
@@ -61,4 +70,4 @@ def parse_data(lines: list, target_date: date) -> tuple:
         print(e)
 
     
-    return today_reports, yesterday_reports
+    return current_day_reports, previous_day_reports, current_day_str
