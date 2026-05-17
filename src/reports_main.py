@@ -5,12 +5,13 @@ import json
 from time import sleep
 from os import getenv
 from dotenv import load_dotenv
-import copy
+from copy import deepcopy
 import colors
 
 # MARK: CONFIG
 url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
+url_test_reactor = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/2026/20260102en"
 url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
 URL = url
@@ -18,11 +19,23 @@ URL = url
 load_dotenv()
 
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
-BUFFER_SIZE = 600 # discord has 1000 limit for embed fields
-ACTUAL_BUFFER_SIZE = BUFFER_SIZE # not needed anymore
-JSON_FILE_PATH = "src/facility.json"
-SLEEP_TIME = 3 # secs
+BUFFER_SIZE = 900 # discord has 1000 limit for embed fields
+SLEEP_TIME = 5 # secs
 DEBUG = True
+
+try:
+    with open("src/facility_schema.json", "r") as f:
+        facility_schema = json.load(f)
+except FileNotFoundError:
+    print("The facility report schema file does not exist")
+
+try:
+    with open("src/plant_schema.json", "r") as f:
+        plant_schema = json.load(f)
+except FileNotFoundError:
+    print("The plant report schema file does not exist")
+
+is_reactor_report = False
 
 # MARK: HELPERS
 def replace_text(obj, old, new):
@@ -43,8 +56,36 @@ def replace_text(obj, old, new):
         return {key: replace_text(value, old, new) for key, value in obj.items()}
     return obj
 
+def format_table(data: list) -> str:
+    headers = ["Unit", "SCRAM", "RX Crit", "Init PWR", "Curr PWR"]
+    widths = [6, 9, 9, 12, 12]
+    
+    top_border    = "┌" + "┬".join("─" * w for w in widths) + "┐"
+    header_sep    = "├" + "┼".join("─" * w for w in widths) + "┤"
+    bottom_border = "└" + "┴".join("─" * w for w in widths) + "┘"
+
+    header_cells = [f" {headers[i]:^{widths[i]-2}} " for i in range(len(headers))] # header
+    header_row   = "│" + "│".join(header_cells) + "│"
+    table_lines = [top_border, header_row, header_sep]
+
+    for row in data:
+        filtered_row = [row[0], row[1], row[2], row[3], row[5]]
+        
+        if len(filtered_row) != len(headers):
+            return f"Error: Expected {len(headers)} columns of data, got {len(filtered_row)}."
+        
+        data_cells = [f" {filtered_row[i]:<{widths[i]-2}} " for i in range(len(filtered_row))]
+        data_row   = "│" + "│".join(data_cells) + "│"
+        table_lines.append(data_row)
+
+    table_lines.append(bottom_border)
+
+    return "\n".join(table_lines)
+
+
 # MARK: GET DATA
 try:
+    print("Fetching data...")
     response = requests.get(URL)
     print("Successfully fetched data")
 except Exception as e:
@@ -109,12 +150,6 @@ parsed_events = []
 text_blocks = soup.select("div.border")
 odd_text = text_blocks[1::2]
 
-try:
-    with open(JSON_FILE_PATH, "r") as f:
-        schema = json.load(f)
-except FileNotFoundError:
-    print("The facility.json file does not exist")
-
 for cycle, number in enumerate(doc_numbers):
 
     print("Processing event no:", number)
@@ -162,6 +197,39 @@ for cycle, number in enumerate(doc_numbers):
 
         event_data[key] = value
 
+    if "RX Type" in event_data.keys():
+        is_reactor_report = True
+    
+    # MARK: extract reactor table
+    if is_reactor_report:
+        table = None
+        reactor_data = []
+        
+        for sibling in processing_event.find_next_siblings(): # made extra annoying by the fact that there can be mixed reports in one page
+            
+            # Stop searching if we hit the Event Text block or a new event block
+            if sibling.name == "div" and ("border" in sibling.get("class", []) or "grid" in sibling.get("class", [])):
+                break 
+                
+            if sibling.name == "table":
+                table = sibling
+                break
+        
+        if table:
+            table_body = table.find("tbody")            
+            reactor_data = []
+            
+            rows_source = table_body if table_body else table
+            
+            for row in rows_source.find_all('tr'):
+                cols = [element.text.strip() for element in row.find_all('td')]
+                if cols:
+                    reactor_data.append(cols)
+            
+            # print(reactor_data)
+        else:
+            print(f"Error: Failed finding reactor info table for event {number}")
+
     # MARK: extract text block
     try:
         text_tag = odd_text[cycle]
@@ -171,107 +239,50 @@ for cycle, number in enumerate(doc_numbers):
 
     text = text_tag.get_text("\n", strip=True)
 
-
-    chunks = chunk_lines(
-        text.splitlines(),
-        ACTUAL_BUFFER_SIZE
-    )
+    chunks = chunk_lines(text.splitlines(), BUFFER_SIZE)
 
     # MARK: INTERPRET DATA
+    print("Plant Report" if is_reactor_report else "Facility Report")
     try:
-        facility = copy.deepcopy(schema)
+        embed_data = deepcopy(plant_schema if is_reactor_report else facility_schema)
 
-        facility = replace_text( # formatter likes it this way
-            facility,
-            "<number>",
-            number
-        )
+        fields = []
+        fields.append(("<number>", number))
+        fields.append(("<concperson>", event_data["Person (Organization)"]))
+        fields.append(("<hqofficer>", event_data["HQ OPS Officer"]))
+        fields.append(("<eventDate>", event_data["Event Date"]))
+        fields.append(("<eventTime>", event_data["Event Time"]))
+        fields.append(("<personNotified>", event_data["NRC Notified By"]))
+        fields.append(("<emergencyClass>", event_data["Emergency Class"]))
+        fields.append(("<section>", event_data["CFR Section"]))
+        fields.append(("<state>", event_data["State"]))
+        fields.append(("<region>", event_data["Region"]))
+        fields.append(("<notifyDate>", event_data["Notification Date"]))
 
-        facility = replace_text(
-            facility,
-            "<reporg>",
-            event_data["Rep Org"]
-        )
+        if is_reactor_report:
+            fields.append(("<notifyTime>", event_data["Notification Time"]))
+            fields.append(("<facility>", event_data["Facility"]))
+            fields.append(("<unit>", event_data["Unit"]))
+            fields.append(("<rxType>", event_data["RX Type"]))
 
-        facility = replace_text(
-            facility,
-            "<concperson>",
-            event_data["Person (Organization)"]
-        )
+            if reactor_data:
+                fields.append(("<reactorData>", format_table(reactor_data)))
+            else:
+                fields.append(("<reactorData>", "No reactor data found."))
+        else:
+            fields.append(("<county>", event_data["County"]))
+            fields.append(("<city>", event_data["City"]))
+            fields.append(("<reporg>", event_data["Rep Org"]))
 
-        facility = replace_text(
-            facility,
-            "<hqofficer>",
-            event_data["HQ OPS Officer"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<date>",
-            event_data["Event Date"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<time>",
-            event_data["Event Time"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<personNotified>",
-            event_data["NRC Notified By"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<emergencyClass>",
-            event_data["Emergency Class"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<state>",
-            event_data["State"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<city>",
-            event_data["City"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<region>",
-            event_data["Region"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<county>",
-            event_data["County"]
-        )
-
-        facility = replace_text(
-            facility,
-            "<emergencyClass>",
-            event_data["Emergency Class"]
-        )
-
-
-        facility = replace_text(
-            facility,
-            "<section>",
-            event_data["CFR Section"]
-        )
+        for placeholder, value in fields:
+            embed_data = replace_text(embed_data, placeholder, value)
 
     except KeyError as e:
         print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
         continue
 
     # MARK: INSERT CHUNKS
-    embed = facility["embeds"][0]
+    embed = embed_data["embeds"][0]
 
     if "fields" not in embed:
         embed["fields"] = []
@@ -290,10 +301,12 @@ for cycle, number in enumerate(doc_numbers):
 
     parsed_events.append({
         "number": number,
-        "embed": facility,
+        "embed": embed_data,
         "metadata": event_data
     })
 
+
+del soup # cleap up
 
 # MARK: SENDING DATA
 for event in parsed_events:

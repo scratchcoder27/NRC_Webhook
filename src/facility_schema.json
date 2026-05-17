@@ -19,13 +19,13 @@
           "inline": true
         },
         {
-          "name": "Notification Info",
-          "value": "```Event Date: <date>\nEvent Time: <time>\nNRC Notified By: <personNotified>\n```",
+          "name": "Time and Date",
+          "value": "```Event Date: <eventDate>\nEvent Time: <eventTime>\nNRC Notified By: <personNotified>\n```",
           "inline": true
         }
       ],
       "footer": {
-        "text": "Report number <number>, posted on <date>"
+        "text": "Report number <number>, posted on <notifyDate>"
       }
     }
   ]
