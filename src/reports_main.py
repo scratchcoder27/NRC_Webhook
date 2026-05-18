@@ -32,13 +32,13 @@ if IS_GITHUB_ACTIONS:
     import datamgmt
 
 try:
-    with open("src/facility_schema.json", "r") as f:
+    with open("facility_schema.json", "r") as f:
         facility_schema_str = f.read()
 except FileNotFoundError:
     print("The facility report schema file does not exist")
 
 try:
-    with open("src/plant_schema.json", "r") as f:
+    with open("plant_schema.json", "r") as f:
         plant_schema_str = f.read()
 except FileNotFoundError:
     print("The plant report schema file does not exist")
@@ -282,15 +282,16 @@ for cycle, number in enumerate(doc_numbers):
             fields.append(("<reporg>", event_data["Rep Org"]))
 
         
-        embed_str = deepcopy(plant_schema_str if is_reactor_report else facility_schema_str)
+        embed_str = plant_schema_str if is_reactor_report else facility_schema_str
 
         for old, new in fields:
             embed_str = embed_str.replace(old, str(new))
+            print(repr(embed_str))
         
         try:
             embed_data = json.loads(embed_str)
         except json.JSONDecodeError as e:
-            print("Error while parsing json after replacements, " + e)
+            print("Error while parsing json after replacements", e)
             exit()
         
         del embed_str
