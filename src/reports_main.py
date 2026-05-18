@@ -14,7 +14,7 @@ url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/read
 url_test_reactor = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/2026/20260102en"
 url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
-URL = url
+URL = url_test_reactor
 
 load_dotenv()
 
@@ -37,6 +37,17 @@ except FileNotFoundError:
 
 is_reactor_report = False
 
+# MARK: GET WEBHOOK URLS
+webhook_urls = []
+if "," in WEBHOOK_URL_REPORT:
+    try:
+        for item in WEBHOOK_URL_REPORT.split(","):
+            webhook_urls.append(item.strip())
+    except Exception:
+        print("ERROR: Invalid formatting in WEBHOOK_URL_REPORT value in environment file")
+else:
+    webhook_urls.append(WEBHOOK_URL_REPORT)
+
 # MARK: HELPERS
 def replace_text(obj, old, new):
     if isinstance(obj, str):
@@ -58,13 +69,13 @@ def replace_text(obj, old, new):
 
 def format_table(data: list) -> str:
     headers = ["Unit", "SCRAM", "RX Crit", "Init PWR", "Curr PWR"]
-    widths = [6, 9, 9, 12, 12]
+    widths = [4, 5, 7, 8, 8]
     
     top_border    = "┌" + "┬".join("─" * w for w in widths) + "┐"
     header_sep    = "├" + "┼".join("─" * w for w in widths) + "┤"
     bottom_border = "└" + "┴".join("─" * w for w in widths) + "┘"
 
-    header_cells = [f" {headers[i]:^{widths[i]-2}} " for i in range(len(headers))] # header
+    header_cells = [f"{headers[i]:^{widths[i]-2}}" for i in range(len(headers))] # header
     header_row   = "│" + "│".join(header_cells) + "│"
     table_lines = [top_border, header_row, header_sep]
 
@@ -223,10 +234,14 @@ for cycle, number in enumerate(doc_numbers):
             
             for row in rows_source.find_all('tr'):
                 cols = [element.text.strip() for element in row.find_all('td')]
+                for i, item in enumerate(cols):
+                    if item == "N":
+                        cols[i] = "No"
+                    elif item == "Y":
+                        cols[i] = "Yes"
                 if cols:
                     reactor_data.append(cols)
             
-            # print(reactor_data)
         else:
             print(f"Error: Failed finding reactor info table for event {number}")
 
@@ -309,27 +324,25 @@ for cycle, number in enumerate(doc_numbers):
 del soup # cleap up
 
 # MARK: SENDING DATA
-for event in parsed_events:
+for webhook_url in webhook_urls:
+    for inum, event in enumerate(parsed_events):
+        print(f"Sending event {event['number']}")
 
-    print(f"Sending event {event['number']}")
+        # Send embed
+        try:
+            response = requests.post(
+                webhook_url,
+                json=event["embed"]
+            )
 
-    # Send embed
-    try:
-        response = requests.post(
-            WEBHOOK_URL_REPORT,
-            json=event["embed"]
-        )
+            if response.status_code == 204:
+                print("Embed sent successfully.")
+            else:
+                print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
+                print(response.text)
 
-        if response.status_code == 204:
-            print("Embed sent successfully.")
-        else:
-            print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
-            print(response.text)
+        except Exception as e:
+            print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
 
-    except Exception as e:
-        print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
-
-    sleep(SLEEP_TIME)
-
-# MARK: DEBUG
-# if not DEBUG:    exit()
+        if (inum + 1) != len(parsed_events):
+            sleep(SLEEP_TIME)

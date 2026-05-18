@@ -1,7 +1,7 @@
 {
   "embeds": [
     {
-      "title": "Event Report\nID:<number>",
+      "title": "Facility Event Report\nID:<number>",
       "fields": [
         {
           "name": "Event Info",

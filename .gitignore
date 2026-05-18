@@ -1,6 +1,5 @@
 .venv/*
 .env
-testingdata.txt
-nrc_events.txt
 src/__pycache__/*
-test.json
+testingdata.txt
+profile_results

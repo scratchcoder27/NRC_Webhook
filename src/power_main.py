@@ -16,6 +16,17 @@ if not WEBHOOK_URL_POWER:
     print("WEBHOOK_URL_POWER not set in .env file.")
     exit()
 
+# MARK: GET WEBHOOK URLS
+webhook_urls = []
+if "," in WEBHOOK_URL_POWER:
+    try:
+        for item in WEBHOOK_URL_POWER.split(","):
+            webhook_urls.append(item.strip())
+    except Exception:
+        print("ERROR: Invalid formatting in WEBHOOK_URL_POWER value in environment file")
+else:
+    webhook_urls.append(WEBHOOK_URL_POWER)
+
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
 
 BUFFER_SIZE = 1950 # discord has 2000 limit
@@ -91,20 +102,21 @@ if string_payload.strip() != "```ansi":
 
 
 # MARK: DISCORD WEBHOOK
-try:
-    for chunk in buffer:
-        payload = {
-            "content": chunk
-        }
+for url in webhook_urls:
+    try:
+        for chunk in buffer:
+            payload = {
+                "content": chunk
+            }
 
-        response = requests.post(WEBHOOK_URL_POWER, json=payload)
+            response = requests.post(url, json=payload)
 
-        if response.status_code == 204:
-            print("Packet sent successfully.")
-        else:
-            print(f"Failed: {response.status_code}")
-            print(response.text)
+            if response.status_code == 204:
+                print("Packet sent successfully.")
+            else:
+                print(f"Failed: {response.status_code}")
+                print(response.text)
 
-        sleep(WAIT_TIME)
-except Exception as e:
-    print(f"Error sending message: {e}")
+            sleep(WAIT_TIME)
+    except Exception as e:
+        print(f"Error sending message: {e}")
