@@ -70,7 +70,7 @@ def format_table(data: list) -> str:
     table_lines = [top_border, header_row, header_sep]
 
     for row in data:
-        filtered_row = [row[0], row[1], row[2], row[3], row[5]]
+        filtered_row = [row[0], row[1], row[2], row[3], row[4]]
         
         if len(filtered_row) != len(headers):
             return f"Error: Expected {len(headers)} columns of data, got {len(filtered_row)}."
@@ -80,8 +80,7 @@ def format_table(data: list) -> str:
         table_lines.append(data_row)
 
     table_lines.append(bottom_border)
-
-    return "\n".join(table_lines)
+    return "\\n".join(table_lines)
 
 
 # MARK: GET DATA
@@ -272,10 +271,10 @@ for cycle, number in enumerate(doc_numbers):
             fields.append(("<unit>", event_data["Unit"]))
             fields.append(("<rxType>", event_data["RX Type"]))
 
-            if reactor_data:
-                fields.append(("<reactorData>", format_table(reactor_data)))
-            else:
-                fields.append(("<reactorData>", "No reactor data found."))
+            #if reactor_data:
+            #    fields.append(("<reactorData>", format_table(reactor_data)))
+            #else:
+            #    fields.append(("<reactorData>", "No reactor data found."))
         else:
             fields.append(("<county>", event_data["County"]))
             fields.append(("<city>", event_data["City"]))
@@ -286,12 +285,11 @@ for cycle, number in enumerate(doc_numbers):
 
         for old, new in fields:
             embed_str = embed_str.replace(old, str(new))
-            print(repr(embed_str))
         
         try:
             embed_data = json.loads(embed_str)
         except json.JSONDecodeError as e:
-            print("Error while parsing json after replacements", e)
+            print("Error while parsing json after replacements:", e)
             exit()
         
         del embed_str
