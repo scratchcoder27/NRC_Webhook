@@ -3,3 +3,4 @@
 src/__pycache__/*
 testingdata.txt
 profile_results
+src/state.json

@@ -25,11 +25,10 @@ is_reactor_report = False
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
 BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
 SLEEP_TIME = 3 # secs
-# DEBUG = False
-IS_GITHUB_ACTIONS = True
+DEBUG = True
+IS_GITHUB_ACTIONS = False
 
-if IS_GITHUB_ACTIONS:
-    import datamgmt
+import datamgmt
 
 try:
     with open("src/facility_schema.json", "r") as f:
@@ -81,7 +80,7 @@ def format_table(data: list) -> str:
 
     table_lines.append(bottom_border)
 
-    return "\n".join(table_lines)
+    return "\\n".join(table_lines)
 
 
 # MARK: GET DATA
@@ -94,7 +93,7 @@ except Exception as e:
 
 if response.status_code != 200:
     print("Error while getting data, recieved status code " + response.status_code)
-    exit()
+    exit(1)
 
 # MARK: PREPROCESS
 # quick and fast way to just get the doc numbers, without having to parse the entire code
@@ -103,9 +102,21 @@ doc_numbers = re_findall(
     response.text
 )
 
-if IS_GITHUB_ACTIONS:
-    pass
+doc_numbers_temp = doc_numbers.copy()
+if not DEBUG:
+    docs_saved : dict = datamgmt.load_state()
+    for i, doc_num in enumerate(doc_numbers):
+        if (str(doc_num) in docs_saved):
+            doc_numbers_temp.pop(i)
+    print("Saved: " + str(doc_numbers_temp))
+    datamgmt.add_docs(doc_numbers_temp)
 
+    doc_numbers = doc_numbers_temp.copy()
+    del doc_numbers_temp, docs_saved
+
+if len(doc_numbers) < 1:
+    print("No events since last run, exiting")
+    exit(0)
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
@@ -290,8 +301,9 @@ for cycle, number in enumerate(doc_numbers):
         try:
             embed_data = json.loads(embed_str)
         except json.JSONDecodeError as e:
-            print("Error while parsing json after replacements, " + e)
-            exit()
+            print(f"Error while parsing json after replacements {e}")
+            print(embed_str)
+            exit(1)
         
         del embed_str
 
