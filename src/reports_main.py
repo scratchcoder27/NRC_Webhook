@@ -1,3 +1,4 @@
+from re import findall as re_findall
 import requests
 from bs4 import BeautifulSoup
 import discord
@@ -6,6 +7,8 @@ from time import sleep
 from os import getenv
 from dotenv import load_dotenv
 from copy import deepcopy
+from sys import exit
+
 import colors
 
 # MARK: CONFIG
@@ -17,25 +20,29 @@ url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html
 URL = url_test_reactor
 
 load_dotenv()
+is_reactor_report = False
 
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
-BUFFER_SIZE = 900 # discord has 1000 limit for embed fields
-SLEEP_TIME = 5 # secs
-DEBUG = True
+BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
+SLEEP_TIME = 3 # secs
+# DEBUG = False
+IS_GITHUB_ACTIONS = True
+
+if IS_GITHUB_ACTIONS:
+    import datamgmt
 
 try:
     with open("src/facility_schema.json", "r") as f:
-        facility_schema = json.load(f)
+        facility_schema_str = f.read()
 except FileNotFoundError:
     print("The facility report schema file does not exist")
 
 try:
     with open("src/plant_schema.json", "r") as f:
-        plant_schema = json.load(f)
+        plant_schema_str = f.read()
 except FileNotFoundError:
     print("The plant report schema file does not exist")
 
-is_reactor_report = False
 
 # MARK: GET WEBHOOK URLS
 webhook_urls = []
@@ -49,23 +56,6 @@ else:
     webhook_urls.append(WEBHOOK_URL_REPORT)
 
 # MARK: HELPERS
-def replace_text(obj, old, new):
-    if isinstance(obj, str):
-        # Convert special Discord objects to strings automatically
-        if isinstance(new, discord.Role):
-            new = new.mention
-        elif isinstance(new, discord.Member):
-            new = new.mention
-        else:
-            new = str(new)
-        return obj.replace(old, new)
-    elif isinstance(obj, list):
-        return [replace_text(item, old, new) for item in obj]
-    elif isinstance(obj, tuple):
-        return [replace_text(item, old, new) for item in obj]
-    elif isinstance(obj, dict):
-        return {key: replace_text(value, old, new) for key, value in obj.items()}
-    return obj
 
 def format_table(data: list) -> str:
     headers = ["Unit", "SCRAM", "RX Crit", "Init PWR", "Curr PWR"]
@@ -104,57 +94,60 @@ except Exception as e:
 
 if response.status_code != 200:
     print("Error while getting data, recieved status code " + response.status_code)
+    exit()
+
+# MARK: PREPROCESS
+# quick and fast way to just get the doc numbers, without having to parse the entire code
+doc_numbers = re_findall(
+    r'<div[^>]*class="grid border"[^>]*id="en(\d+)"[^>]*>',
+    response.text
+)
+
+if IS_GITHUB_ACTIONS:
+    pass
+
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
-
     chunks = []
-    current_chunk = ""
+    current_chunk = []
+    current_length = 0
 
     for line in lines:
-
         line = line.strip()
-
         if not line:
             continue
 
         # Split oversized individual lines
         while len(line) > max_size:
-
             if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = ""
-
+                chunks.append("\n".join(current_chunk))
+                current_chunk = []
+                current_length = 0
             chunks.append(line[:max_size])
             line = line[max_size:]
 
         # Normal accumulation
-        if len(current_chunk) + len(line) + 1 > max_size:
-
+        if current_length + len(line) + 1 > max_size:
             if current_chunk:
-                chunks.append(current_chunk)
-
-            current_chunk = line
-
+                chunks.append("\n".join(current_chunk))
+            current_chunk = [line]
+            current_length = len(line)
         else:
-
-            if current_chunk:
-                current_chunk += "\n" + line
-            else:
-                current_chunk = line
+            current_chunk.append(line)
+            current_length += len(line) + 1 # +1 for the newline
 
     if current_chunk:
-        chunks.append(current_chunk)
+        chunks.append("\n".join(current_chunk))
 
     return chunks
-
 
 # MARK: PARSING
 soup = BeautifulSoup(response.text, "lxml")
 all_event = soup.find("div", class_="event-summary number text-center") 
-raw_doc_numbers = [anchor.text for anchor in all_event]
-doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
-print(doc_numbers)
+# raw_doc_numbers = [anchor.text for anchor in all_event]
+# doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
+# print(doc_numbers)
 
 parsed_events = []
 
@@ -259,7 +252,6 @@ for cycle, number in enumerate(doc_numbers):
     # MARK: INTERPRET DATA
     print("Plant Report" if is_reactor_report else "Facility Report")
     try:
-        embed_data = deepcopy(plant_schema if is_reactor_report else facility_schema)
 
         fields = []
         fields.append(("<number>", number))
@@ -289,8 +281,19 @@ for cycle, number in enumerate(doc_numbers):
             fields.append(("<city>", event_data["City"]))
             fields.append(("<reporg>", event_data["Rep Org"]))
 
-        for placeholder, value in fields:
-            embed_data = replace_text(embed_data, placeholder, value)
+        
+        embed_str = deepcopy(plant_schema_str if is_reactor_report else facility_schema_str)
+
+        for old, new in fields:
+            embed_str = embed_str.replace(old, str(new))
+        
+        try:
+            embed_data = json.loads(embed_str)
+        except json.JSONDecodeError as e:
+            print("Error while parsing json after replacements, " + e)
+            exit()
+        
+        del embed_str
 
     except KeyError as e:
         print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
