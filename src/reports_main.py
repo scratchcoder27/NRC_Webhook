@@ -31,13 +31,13 @@ IS_GITHUB_ACTIONS = False
 import datamgmt
 
 try:
-    with open("facility_schema.json", "r") as f:
+    with open("src/facility_schema.json", "r") as f: # the programs supposed to be run from the outer directory
         facility_schema_str = f.read()
 except FileNotFoundError:
     print("The facility report schema file does not exist")
 
 try:
-    with open("plant_schema.json", "r") as f:
+    with open("src/plant_schema.json", "r") as f:
         plant_schema_str = f.read()
 except FileNotFoundError:
     print("The plant report schema file does not exist")
@@ -69,7 +69,7 @@ def format_table(data: list) -> str:
     table_lines = [top_border, header_row, header_sep]
 
     for row in data:
-        filtered_row = [row[0], row[1], row[2], row[3], row[4]]
+        filtered_row = [row[0], row[1], row[2], row[3], row[5]] # skip the 4th row, which makes the text too large, and can be inferred anyway
         
         if len(filtered_row) != len(headers):
             return f"Error: Expected {len(headers)} columns of data, got {len(filtered_row)}."
@@ -282,10 +282,10 @@ for cycle, number in enumerate(doc_numbers):
             fields.append(("<unit>", event_data["Unit"]))
             fields.append(("<rxType>", event_data["RX Type"]))
 
-            #if reactor_data:
-            #    fields.append(("<reactorData>", format_table(reactor_data)))
-            #else:
-            #    fields.append(("<reactorData>", "No reactor data found."))
+            if reactor_data:
+               fields.append(("<reactorData>", format_table(reactor_data)))
+            else:
+               fields.append(("<reactorData>", "No reactor data found."))
         else:
             fields.append(("<county>", event_data["County"]))
             fields.append(("<city>", event_data["City"]))
