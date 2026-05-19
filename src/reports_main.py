@@ -1,7 +1,26 @@
+"""
+    NRC Webhook - Sends nuclear status updates to a discord server
+    Copyright (C) 2026, rasa_vlk and scratchcoder27
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    For any questions, contact the developers on discord or on github
+"""
+
 from re import findall as re_findall
 import requests
 from bs4 import BeautifulSoup
-import discord
 import json
 from time import sleep
 from os import getenv
@@ -11,32 +30,34 @@ import datamgmt
 import colors
 
 # MARK: CONFIG
-url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
-url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
-url_test_reactor = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/2026/20260102en"
-url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
+# url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
+# url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
+# url_test_reactor = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/2026/20260102en"
+# url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
-URL = url_test_reactor
+URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
-DEBUG = True
+DEBUG = False
 BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
 SLEEP_TIME = 3 # secs
 
-if DEBUG:
+try:
     load_dotenv()
+except Exception:
+    print("No env file found, continuing...")
 
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
 is_reactor_report = False
 
 
 try:
-    with open("src/facility_schema.json", "r") as f: # the programs supposed to be run from the outer directory
+    with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
         facility_schema_str = f.read()
 except FileNotFoundError:
     print("The facility report schema file does not exist")
 
 try:
-    with open("src/plant_schema.json", "r") as f:
+    with open("schema/facility.json", "r") as f:
         plant_schema_str = f.read()
 except FileNotFoundError:
     print("The plant report schema file does not exist")
@@ -105,7 +126,11 @@ if not DEBUG:
     docs_saved : dict = datamgmt.load_state()
     for i, doc_num in enumerate(doc_numbers):
         if (str(doc_num) in docs_saved):
-            doc_numbers_temp.pop(i)
+                doc_numbers_temp[i] = None
+    
+    for i in range(doc_numbers_temp.count(None)):
+        doc_numbers_temp.remove(None)
+
     print("Saved: " + str(doc_numbers_temp))
     datamgmt.add_docs(doc_numbers_temp)
 
@@ -286,8 +311,8 @@ for cycle, number in enumerate(doc_numbers):
             else:
                fields.append(("<reactorData>", "No reactor data found."))
         else:
-            fields.append(("<county>", event_data["County"]))
-            fields.append(("<city>", event_data["City"]))
+            fields.append(("<no county provided>", (event_data["County"] if (event_data["County"]) else "None provided"))) # absent in some reports
+            fields.append(("<no city provided>", (event_data["City"] if (event_data["City"]) else "None provided")))
             fields.append(("<reporg>", event_data["Rep Org"]))
 
         

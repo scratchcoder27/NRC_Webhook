@@ -15,7 +15,7 @@
         },
         {
           "name": "Location info",
-          "value": "```State: <state>\nCity: <city>\nRegion: <region>\nCounty: <county>```",
+          "value": "```State: <state>\nCity: <no city provided>\nRegion: <region>\nCounty: <no county provided>```",
           "inline": true
         },
         {

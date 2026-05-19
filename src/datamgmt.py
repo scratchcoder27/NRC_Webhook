@@ -42,39 +42,6 @@ def save_state(state):
     )
 
 
-def has_doc(doc_id):
-    """
-    Check if document already exists in state.
-    """
-
-    state = load_state()
-    return str(doc_id) in state
-
-
-def add_doc(doc_id):
-    """
-    Add/update a document with current timestamp.
-    """
-
-    state = load_state()
-
-    state[str(doc_id)] = datetime.now(UTC).isoformat()
-
-    save_state(state)
-
-
-def remove_doc(doc_id):
-    """
-    Remove a document from state.
-    """
-
-    state = load_state()
-
-    state.pop(str(doc_id), None)
-
-    save_state(state)
-
-
 def add_docs(doc_ids):
     """
     Add multiple document IDs.
@@ -87,17 +54,3 @@ def add_docs(doc_ids):
         state[str(doc_id)] = timestamp
 
     save_state(state)
-
-
-def get_new_docs(doc_ids):
-    """
-    Return only docs not already stored.
-    """
-
-    state = load_state()
-
-    return [
-        doc_id
-        for doc_id in doc_ids
-        if str(doc_id) not in state
-    ]
