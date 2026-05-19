@@ -1,0 +1,73 @@
+name: NRC Reports
+
+on:
+  schedule:
+    - cron: "0 */4 * * *" # every 4 hours
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    env:
+      WEBHOOK_URL_POWER: ${{ secrets.WEBHOOK_URL_POWER }}
+      WEBHOOK_URL_REPORT: ${{ secrets.WEBHOOK_URL_REPORT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip3 install -r requirements.txt
+
+      # create state branch (a json file there contains the runtime data)
+      - name: Prepare state branch
+        run: |
+          git fetch origin report-state || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/report-state; then
+            git checkout report-state
+          else
+            git checkout --orphan report-state
+            git rm -rf . || true
+            echo "{}" > state.json
+            git add state.json
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git commit -m "Initialize state"
+            git push origin report-state
+          fi
+
+      # Restore actual project files
+      - name: Restore project files
+        run: |
+          git checkout $GITHUB_SHA -- .
+
+      - name: Run script
+        run: |
+          python3 src/reports_main.py
+
+      # Commit updated state.json
+      - name: Commit updated state
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          git add state.json
+
+          git diff --cached --quiet || git commit -m "Update report state"
+
+          git push origin report-state

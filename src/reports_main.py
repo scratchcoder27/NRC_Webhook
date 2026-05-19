@@ -6,9 +6,8 @@ import json
 from time import sleep
 from os import getenv
 from dotenv import load_dotenv
-from copy import deepcopy
 from sys import exit
-
+import datamgmt
 import colors
 
 # MARK: CONFIG
@@ -19,16 +18,16 @@ url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html
 
 URL = url_test_reactor
 
-load_dotenv()
-is_reactor_report = False
-
-WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+DEBUG = True
 BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
 SLEEP_TIME = 3 # secs
-DEBUG = True
-IS_GITHUB_ACTIONS = False
 
-import datamgmt
+if DEBUG:
+    load_dotenv()
+
+WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+is_reactor_report = False
+
 
 try:
     with open("src/facility_schema.json", "r") as f: # the programs supposed to be run from the outer directory

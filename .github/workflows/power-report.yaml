@@ -1,0 +1,32 @@
+name: Power Report
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 12:00 UTC
+
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    env:
+      WEBHOOK_URL_POWER: ${{ secrets.WEBHOOK_URL_POWER }}
+      WEBHOOK_URL_REPORT: ${{ secrets.WEBHOOK_URL_REPORT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip3 install -r requirements.txt
+
+      - name: Run script
+        run: |
+          python3 src/power_main.py

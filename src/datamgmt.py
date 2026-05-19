@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, UTC
 from pathlib import Path
 import json
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent.parent # root folder of the project
 STATE_FILE = BASE_DIR / "state.json"
 
 EXPIRY_DAYS = 4
