@@ -1,0 +1,32 @@
+{
+  "embeds": [
+    {
+      "title": "Facility Event Report\nID:<number>",
+      "fields": [
+        {
+          "name": "Event Info",
+          "value": "```Representing Organisation: <reporg>\nConcerned Person/Organisation: <concperson>\nHQ operations officer: <hqofficer>```",
+          "inline": false
+        },
+        {
+          "name": "Emergency Class",
+          "value": "```Emergency Class:<emergencyClass>\n10 CFR Section: <section>```",
+          "inline": false
+        },
+        {
+          "name": "Location info",
+          "value": "```State: <state>\nCity: <no city provided>\nRegion: <region>\nCounty: <no county provided>```",
+          "inline": true
+        },
+        {
+          "name": "Time and Date",
+          "value": "```Event Date: <eventDate>\nEvent Time: <eventTime>\nNRC Notified By: <personNotified>\n```",
+          "inline": true
+        }
+      ],
+      "footer": {
+        "text": "Report number <number>, posted on <notifyDate>"
+      }
+    }
+  ]
+}
