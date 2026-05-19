@@ -27,7 +27,7 @@ def load_state():
         doc_id: timestamp
         for doc_id, timestamp in state.items()
         if datetime.fromisoformat(timestamp) > cutoff
-    }
+    } # comprehension, cleaned state <- entries with doc_id set to timestamp, (and converted date if > than cutoff)
 
     return cleaned_state
 

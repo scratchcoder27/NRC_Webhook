@@ -25,11 +25,12 @@ import json
 from time import sleep
 from os import getenv
 from dotenv import load_dotenv
-from sys import exit
+from sys import exit, argv
 import datamgmt
 import colors
 
 # MARK: CONFIG
+# tests:
 # url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 # url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 # url_test_reactor = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/2026/20260102en"
@@ -49,6 +50,8 @@ except Exception:
 WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
 is_reactor_report = False
 
+arg_string = (" ".join(argv)).lower()
+TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
 
 try:
     with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
@@ -122,7 +125,7 @@ doc_numbers = re_findall(
 )
 
 doc_numbers_temp = doc_numbers.copy()
-if not DEBUG:
+if not (DEBUG or TEST_MODE):
     docs_saved : dict = datamgmt.load_state()
     for i, doc_num in enumerate(doc_numbers):
         if (str(doc_num) in docs_saved):
@@ -284,7 +287,6 @@ for cycle, number in enumerate(doc_numbers):
     chunks = chunk_lines(text.splitlines(), BUFFER_SIZE)
 
     # MARK: INTERPRET DATA
-    print("Plant Report" if is_reactor_report else "Facility Report")
     try:
 
         fields = []
