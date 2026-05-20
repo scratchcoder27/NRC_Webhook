@@ -60,7 +60,7 @@ except FileNotFoundError:
     print("The facility report schema file does not exist")
 
 try:
-    with open("schema/facility.json", "r") as f:
+    with open("schema/plant.json", "r") as f:
         plant_schema_str = f.read()
 except FileNotFoundError:
     print("The plant report schema file does not exist")
@@ -237,7 +237,7 @@ for cycle, number in enumerate(doc_numbers):
                 event_data["CFR Section"] = ""
 
         event_data[key] = value
-
+    
     if "RX Type" in event_data.keys():
         is_reactor_report = True
     
