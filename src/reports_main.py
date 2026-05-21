@@ -43,8 +43,8 @@ SLEEP_TIME = 3 # secs
 
 # MARK: GLOBALS
 WEBHOOK_URL_REPORT = None
-is_reactor_report = False
 TEST_MODE = False
+is_reactor_report = False
 facility_schema_str = ""
 plant_schema_str = ""
 webhook_urls = []
@@ -139,7 +139,7 @@ def preprocess_data():
     global doc_numbers
     # quick and fast way to just get the doc numbers, without having to parse the entire code
     doc_numbers = re_findall(
-        r'<div[^>]*class="grid border"[^>]*id="en(\d+)"[^>]*>',
+        r'<div[^>]*class="grid border"[^>]*id="en(\d+)"[^>]*>', # the [^>]* ignores other attributes
         response.text
     )
 
@@ -158,10 +158,6 @@ def preprocess_data():
 
         doc_numbers = doc_numbers_temp.copy()
         del doc_numbers_temp, docs_saved
-
-    if len(doc_numbers) < 1:
-        print("No events since last run, exiting")
-        exit(0)
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
@@ -408,14 +404,18 @@ def send_data():
                 sleep(SLEEP_TIME)
 
 
-def main():
+def main(in_memory=False):
+    datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
     get_webhook_urls()
     fetch_data()
     preprocess_data()
+    if len(doc_numbers) < 1:
+        print("No events since last run, exiting")
+        return
     parse()
     send_data()
 
 
 if __name__ == "__main__":
-    main()
+    main(False)

@@ -53,7 +53,7 @@ def initialize_config():
     WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
     if not WEBHOOK_URL_POWER:
         print("WEBHOOK_URL_POWER not set in .env file.")
-        exit()
+        exit(1)
     
     arg_string = (" ".join(argv)).lower()
     TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
@@ -77,11 +77,11 @@ def fetch_data():
 
         if response.status_code != 200:
             print(f"Failed to fetch power data: {response.status_code}")
-            exit()
+            exit(1)
 
     except Exception as e:
         print(f"Error fetching data: {e}")
-        exit()
+        exit(1)
 
     print("Data fetched successfully.")
 
@@ -95,7 +95,7 @@ def parse_data():
         today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
     except Exception as e:
         print(f"Error parsing data: {e}")
-        exit()
+        exit(1)
 
     if response_lines:    del response_lines # free data
 
@@ -116,8 +116,6 @@ def prepare_data():
 
     len_string = len(string_payload)
 
-    first_chunk = True
-
     for plant_name, report in today_reports.items():
 
         changed = False
@@ -130,7 +128,7 @@ def prepare_data():
 
         report_str = report.to_string(changed, yesterday_report.power)
 
-        if len_string + len(report_str) + 1 + 4 > BUFFER_SIZE:
+        if (len_string + len(report_str) + 1 + 4) > BUFFER_SIZE: # newline + three backticks
             buffer.append(string_payload + "\n```")
 
             string_payload = "```ansi\n"
@@ -166,7 +164,8 @@ def send_data():
             print(f"Error sending message: {e}")
 
 
-def main():
+def main(in_memory=False):
+    datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
     fetch_data()
     parse_data()
@@ -175,7 +174,7 @@ def main():
         chk_date = (str(list(today_reports.items())[0][1].date))
         if (chk_date == prev_date):
             print('No new data')
-            exit(0)
+            return
         
         datamgmt.set_power_data(chk_date)
     prepare_data()
@@ -183,4 +182,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(False) # was invoked directly or with actions
