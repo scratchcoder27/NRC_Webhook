@@ -20,13 +20,15 @@
 
 from time import sleep, time
 from datetime import date
+from os import getenv
+from dotenv import load_dotenv
 
 import requests
 import power_parser
-import colors
+from sys import argv
 
-from os import getenv
-from dotenv import load_dotenv
+import colors
+import datamgmt
 
 # MARK: GLOBALS
 
@@ -35,6 +37,7 @@ webhook_urls = []
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
 BUFFER_SIZE = 1950 # discord has 2000 limit
 WAIT_TIME = 2 #seconds
+TEST_MODE = False
 
 response = None
 today_reports = {}
@@ -44,13 +47,16 @@ buffer = []
 
 # MARK: CONFIG
 def initialize_config():
-    global WEBHOOK_URL_POWER, webhook_urls
+    global WEBHOOK_URL_POWER, webhook_urls, TEST_MODE
     load_dotenv()
 
     WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
     if not WEBHOOK_URL_POWER:
         print("WEBHOOK_URL_POWER not set in .env file.")
         exit()
+    
+    arg_string = (" ".join(argv)).lower()
+    TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
 
     # MARK: GET WEBHOOK URLS
     if "," in WEBHOOK_URL_POWER:
@@ -164,6 +170,14 @@ def main():
     initialize_config()
     fetch_data()
     parse_data()
+    if not TEST_MODE:
+        prev_date = datamgmt.get_power_data()
+        chk_date = (str(list(today_reports.items())[0][1].date))
+        if (chk_date == prev_date):
+            print('No new data')
+            exit(0)
+        
+        datamgmt.set_power_data(chk_date)
     prepare_data()
     send_data()
 
