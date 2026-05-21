@@ -22,6 +22,7 @@ from time import sleep, time
 from datetime import date
 from os import getenv
 from dotenv import load_dotenv
+from hashlib import sha256
 
 import requests
 import power_parser
@@ -84,6 +85,8 @@ def fetch_data():
         exit(1)
 
     print("Data fetched successfully.")
+
+    return sha256(data=response.text.encode()).hexdigest()
 
 
 # MARK: PARSING
@@ -167,16 +170,15 @@ def send_data():
 def main(in_memory=False):
     datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
-    fetch_data()
+    curr_hash = fetch_data()
     parse_data()
     if not TEST_MODE:
-        prev_date = datamgmt.get_power_data()
-        chk_date = (str(list(today_reports.items())[0][1].date))
-        if (chk_date == prev_date):
+        prev_hash = datamgmt.get_power_data()
+        if (prev_hash == curr_hash):
             print('No new data')
             return
         
-        datamgmt.set_power_data(chk_date)
+        datamgmt.set_power_data(curr_hash)
     prepare_data()
     send_data()
 
