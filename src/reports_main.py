@@ -29,7 +29,6 @@ from sys import exit, argv
 import datamgmt
 import colors
 
-# MARK: CONFIG
 # tests:
 # url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 # url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
@@ -42,40 +41,56 @@ DEBUG = False
 BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
 SLEEP_TIME = 3 # secs
 
-try:
-    load_dotenv()
-except Exception:
-    print("No env file found, continuing...")
-
-WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+# MARK: GLOBALS
+WEBHOOK_URL_REPORT = None
 is_reactor_report = False
+TEST_MODE = False
+facility_schema_str = ""
+plant_schema_str = ""
+webhook_urls = []
+response = None
+doc_numbers = []
+parsed_events = []
 
-arg_string = (" ".join(argv)).lower()
-TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
 
-try:
-    with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
-        facility_schema_str = f.read()
-except FileNotFoundError:
-    print("The facility report schema file does not exist")
+# MARK: CONFIG
+def initialize_config():
+    global WEBHOOK_URL_REPORT, TEST_MODE, facility_schema_str, plant_schema_str, webhook_urls
+    
+    try:
+        load_dotenv()
+    except Exception:
+        print("No env file found, continuing...")
 
-try:
-    with open("schema/plant.json", "r") as f:
-        plant_schema_str = f.read()
-except FileNotFoundError:
-    print("The plant report schema file does not exist")
+    WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
+
+    arg_string = (" ".join(argv)).lower()
+    TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
+
+    try:
+        with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
+            facility_schema_str = f.read()
+    except FileNotFoundError:
+        print("The facility report schema file does not exist")
+
+    try:
+        with open("schema/plant.json", "r") as f:
+            plant_schema_str = f.read()
+    except FileNotFoundError:
+        print("The plant report schema file does not exist")
 
 
 # MARK: GET WEBHOOK URLS
-webhook_urls = []
-if "," in WEBHOOK_URL_REPORT:
-    try:
-        for item in WEBHOOK_URL_REPORT.split(","):
-            webhook_urls.append(item.strip())
-    except Exception:
-        print("ERROR: Invalid formatting in WEBHOOK_URL_REPORT value in environment file")
-else:
-    webhook_urls.append(WEBHOOK_URL_REPORT)
+def get_webhook_urls():
+    global webhook_urls
+    if "," in WEBHOOK_URL_REPORT:
+        try:
+            for item in WEBHOOK_URL_REPORT.split(","):
+                webhook_urls.append(item.strip())
+        except Exception:
+            print("ERROR: Invalid formatting in WEBHOOK_URL_REPORT value in environment file")
+    else:
+        webhook_urls.append(WEBHOOK_URL_REPORT)
 
 # MARK: HELPERS
 
@@ -106,43 +121,47 @@ def format_table(data: list) -> str:
 
 
 # MARK: GET DATA
-try:
-    print("Fetching data...")
-    response = requests.get(URL)
-    print("Successfully fetched data")
-except Exception as e:
-    print("Error while getting data: " + e)
+def fetch_data():
+    global response
+    try:
+        print("Fetching data...")
+        response = requests.get(URL)
+        print("Successfully fetched data")
+    except Exception as e:
+        print("Error while getting data: " + e)
 
-if response.status_code != 200:
-    print("Error while getting data, recieved status code " + response.status_code)
-    exit(1)
+    if response.status_code != 200:
+        print("Error while getting data, recieved status code " + response.status_code)
+        exit(1)
 
 # MARK: PREPROCESS
-# quick and fast way to just get the doc numbers, without having to parse the entire code
-doc_numbers = re_findall(
-    r'<div[^>]*class="grid border"[^>]*id="en(\d+)"[^>]*>',
-    response.text
-)
+def preprocess_data():
+    global doc_numbers
+    # quick and fast way to just get the doc numbers, without having to parse the entire code
+    doc_numbers = re_findall(
+        r'<div[^>]*class="grid border"[^>]*id="en(\d+)"[^>]*>',
+        response.text
+    )
 
-doc_numbers_temp = doc_numbers.copy()
-if not (DEBUG or TEST_MODE):
-    docs_saved : dict = datamgmt.load_state()
-    for i, doc_num in enumerate(doc_numbers):
-        if (str(doc_num) in docs_saved):
-                doc_numbers_temp[i] = None
-    
-    for i in range(doc_numbers_temp.count(None)):
-        doc_numbers_temp.remove(None)
+    doc_numbers_temp = doc_numbers.copy()
+    if not (DEBUG or TEST_MODE):
+        docs_saved : dict = datamgmt.load_state()
+        for i, doc_num in enumerate(doc_numbers):
+            if (str(doc_num) in docs_saved):
+                    doc_numbers_temp[i] = None
+        
+        for i in range(doc_numbers_temp.count(None)):
+            doc_numbers_temp.remove(None)
 
-    print("Saved: " + str(doc_numbers_temp))
-    datamgmt.add_docs(doc_numbers_temp)
+        print("Saved: " + str(doc_numbers_temp))
+        datamgmt.add_docs(doc_numbers_temp)
 
-    doc_numbers = doc_numbers_temp.copy()
-    del doc_numbers_temp, docs_saved
+        doc_numbers = doc_numbers_temp.copy()
+        del doc_numbers_temp, docs_saved
 
-if len(doc_numbers) < 1:
-    print("No events since last run, exiting")
-    exit(0)
+    if len(doc_numbers) < 1:
+        print("No events since last run, exiting")
+        exit(0)
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
@@ -180,208 +199,223 @@ def chunk_lines(lines, max_size):
     return chunks
 
 # MARK: PARSING
-soup = BeautifulSoup(response.text, "lxml")
-all_event = soup.find("div", class_="event-summary number text-center") 
-# raw_doc_numbers = [anchor.text for anchor in all_event]
-# doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
-# print(doc_numbers)
+def parse():
+    global is_reactor_report, parsed_events
+    soup = BeautifulSoup(response.text, "lxml")
+    all_event = soup.find("div", class_="event-summary number text-center") 
+    # raw_doc_numbers = [anchor.text for anchor in all_event]
+    # doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
+    # print(doc_numbers)
 
-parsed_events = []
+    parsed_events = []
 
-text_blocks = soup.select("div.border")
-odd_text = text_blocks[1::2]
+    text_blocks = soup.select("div.border")
+    odd_text = text_blocks[1::2]
 
-for cycle, number in enumerate(doc_numbers):
+    for cycle, number in enumerate(doc_numbers):
 
-    print("Processing event no:", number)
+        print("Processing event no:", number)
 
-    event_data = {}
+        event_data = {}
 
-    processing_event = soup.find(
-        "div",
-        id=f"en{number}",
-        class_="grid border"
-    )
+        processing_event = soup.find(
+            "div",
+            id=f"en{number}",
+            class_="grid border"
+        )
 
-    if processing_event is None:
-        print(f"Could not find event {number}")
-        continue
+        if processing_event is None:
+            print(f"Could not find event {number}")
+            continue
 
-    # MARK: extract fields
-    for field in processing_event.find_all("b"):
+        # MARK: extract fields
+        for field in processing_event.find_all("b"):
 
-        key = field.get_text(strip=True).replace(":", "")
+            key = field.get_text(strip=True).replace(":", "")
 
-        value = field.next_sibling
+            value = field.next_sibling
 
-        if isinstance(value, str):
-            value = value.strip()
-        else:
-            value = ""
-        
-        if key == "Emergency Class": # because it isn't bold unlike the others
-            cfr_text = field.parent.get_text("\n", strip=True)
-
-            lines = [
-                line.strip()
-                for line in cfr_text.splitlines()
-                if line.strip()
-            ]
-
-            try:
-                cfr_index = lines.index("10 CFR Section:")
-                event_data["CFR Section"] = " ".join(
-                    lines[cfr_index + 1:]
-                )
-            except (ValueError, IndexError):
-                event_data["CFR Section"] = ""
-
-        event_data[key] = value
-    
-    if "RX Type" in event_data.keys():
-        is_reactor_report = True
-    
-    # MARK: extract reactor table
-    if is_reactor_report:
-        table = None
-        reactor_data = []
-        
-        for sibling in processing_event.find_next_siblings(): # made extra annoying by the fact that there can be mixed reports in one page
+            if isinstance(value, str):
+                value = value.strip()
+            else:
+                value = ""
             
-            # Stop searching if we hit the Event Text block or a new event block
-            if sibling.name == "div" and ("border" in sibling.get("class", []) or "grid" in sibling.get("class", [])):
-                break 
-                
-            if sibling.name == "table":
-                table = sibling
-                break
+            if key == "Emergency Class": # because it isn't bold unlike the others
+                cfr_text = field.parent.get_text("\n", strip=True)
+
+                lines = [
+                    line.strip()
+                    for line in cfr_text.splitlines()
+                    if line.strip()
+                ]
+
+                try:
+                    cfr_index = lines.index("10 CFR Section:")
+                    event_data["CFR Section"] = " ".join(
+                        lines[cfr_index + 1:]
+                    )
+                except (ValueError, IndexError):
+                    event_data["CFR Section"] = ""
+
+            event_data[key] = value
         
-        if table:
-            table_body = table.find("tbody")            
+        if "RX Type" in event_data.keys():
+            is_reactor_report = True
+        
+        # MARK: extract reactor table
+        if is_reactor_report:
+            table = None
             reactor_data = []
             
-            rows_source = table_body if table_body else table
+            for sibling in processing_event.find_next_siblings(): # made extra annoying by the fact that there can be mixed reports in one page
+                
+                # Stop searching if we hit the Event Text block or a new event block
+                if sibling.name == "div" and ("border" in sibling.get("class", []) or "grid" in sibling.get("class", [])):
+                    break 
+                    
+                if sibling.name == "table":
+                    table = sibling
+                    break
             
-            for row in rows_source.find_all('tr'):
-                cols = [element.text.strip() for element in row.find_all('td')]
-                for i, item in enumerate(cols):
-                    if item == "N":
-                        cols[i] = "No"
-                    elif item == "Y":
-                        cols[i] = "Yes"
-                if cols:
-                    reactor_data.append(cols)
-            
-        else:
-            print(f"Error: Failed finding reactor info table for event {number}")
-
-    # MARK: extract text block
-    try:
-        text_tag = odd_text[cycle]
-    except IndexError:
-        print(f"Missing text block for event {number}")
-        continue
-
-    text = text_tag.get_text("\n", strip=True)
-
-    chunks = chunk_lines(text.splitlines(), BUFFER_SIZE)
-
-    # MARK: INTERPRET DATA
-    try:
-
-        fields = []
-        fields.append(("<number>", number))
-        fields.append(("<concperson>", event_data["Person (Organization)"]))
-        fields.append(("<hqofficer>", event_data["HQ OPS Officer"]))
-        fields.append(("<eventDate>", event_data["Event Date"]))
-        fields.append(("<eventTime>", event_data["Event Time"]))
-        fields.append(("<personNotified>", event_data["NRC Notified By"]))
-        fields.append(("<emergencyClass>", event_data["Emergency Class"]))
-        fields.append(("<section>", event_data["CFR Section"]))
-        fields.append(("<state>", event_data["State"]))
-        fields.append(("<region>", event_data["Region"]))
-        fields.append(("<notifyDate>", event_data["Notification Date"]))
-
-        if is_reactor_report:
-            fields.append(("<notifyTime>", event_data["Notification Time"]))
-            fields.append(("<facility>", event_data["Facility"]))
-            fields.append(("<unit>", event_data["Unit"]))
-            fields.append(("<rxType>", event_data["RX Type"]))
-
-            if reactor_data:
-               fields.append(("<reactorData>", format_table(reactor_data)))
+            if table:
+                table_body = table.find("tbody")            
+                reactor_data = []
+                
+                rows_source = table_body if table_body else table
+                
+                for row in rows_source.find_all('tr'):
+                    cols = [element.text.strip() for element in row.find_all('td')]
+                    for i, item in enumerate(cols):
+                        if item == "N":
+                            cols[i] = "No"
+                        elif item == "Y":
+                            cols[i] = "Yes"
+                    if cols:
+                        reactor_data.append(cols)
+                
             else:
-               fields.append(("<reactorData>", "No reactor data found."))
-        else:
-            fields.append(("<no county provided>", (event_data["County"] if (event_data["County"]) else "None provided"))) # absent in some reports
-            fields.append(("<no city provided>", (event_data["City"] if (event_data["City"]) else "None provided")))
-            fields.append(("<reporg>", event_data["Rep Org"]))
+                print(f"Error: Failed finding reactor info table for event {number}")
 
-        
-        embed_str = plant_schema_str if is_reactor_report else facility_schema_str
-
-        for old, new in fields:
-            embed_str = embed_str.replace(old, str(new))
-        
+        # MARK: extract text block
         try:
-            embed_data = json.loads(embed_str)
-        except json.JSONDecodeError as e:
-            print("Error while parsing json after replacements:", e)
-            exit()
-        
-        del embed_str
+            text_tag = odd_text[cycle]
+        except IndexError:
+            print(f"Missing text block for event {number}")
+            continue
 
-    except KeyError as e:
-        print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
-        continue
+        text = text_tag.get_text("\n", strip=True)
 
-    # MARK: INSERT CHUNKS
-    embed = embed_data["embeds"][0]
+        chunks = chunk_lines(text.splitlines(), BUFFER_SIZE)
 
-    if "fields" not in embed:
-        embed["fields"] = []
+        # MARK: INTERPRET DATA
+        try:
 
-    for index, chunk in enumerate(chunks):
+            fields = []
+            fields.append(("<number>", number))
+            fields.append(("<concperson>", event_data["Person (Organization)"]))
+            fields.append(("<hqofficer>", event_data["HQ OPS Officer"]))
+            fields.append(("<eventDate>", event_data["Event Date"]))
+            fields.append(("<eventTime>", event_data["Event Time"]))
+            fields.append(("<personNotified>", event_data["NRC Notified By"]))
+            fields.append(("<emergencyClass>", event_data["Emergency Class"]))
+            fields.append(("<section>", event_data["CFR Section"]))
+            fields.append(("<state>", event_data["State"]))
+            fields.append(("<region>", event_data["Region"]))
+            fields.append(("<notifyDate>", event_data["Notification Date"]))
 
-        embed["fields"].append({
-            "name": (
-                "Event Text"
-                if index == 0
-                else ""
-            ),
-            "value": f"```txt\n{chunk}\n```",
-            "inline": False
+            if is_reactor_report:
+                fields.append(("<notifyTime>", event_data["Notification Time"]))
+                fields.append(("<facility>", event_data["Facility"]))
+                fields.append(("<unit>", event_data["Unit"]))
+                fields.append(("<rxType>", event_data["RX Type"]))
+
+                if reactor_data:
+                   fields.append(("<reactorData>", format_table(reactor_data)))
+                else:
+                   fields.append(("<reactorData>", "No reactor data found."))
+            else:
+                fields.append(("<no county provided>", (event_data["County"] if (event_data["County"]) else "None provided"))) # absent in some reports
+                fields.append(("<no city provided>", (event_data["City"] if (event_data["City"]) else "None provided")))
+                fields.append(("<reporg>", event_data["Rep Org"]))
+
+            
+            embed_str = plant_schema_str if is_reactor_report else facility_schema_str
+
+            for old, new in fields:
+                embed_str = embed_str.replace(old, str(new))
+            
+            try:
+                embed_data = json.loads(embed_str)
+            except json.JSONDecodeError as e:
+                print("Error while parsing json after replacements:", e)
+                exit()
+            
+            del embed_str
+
+        except KeyError as e:
+            print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
+            continue
+
+        # MARK: INSERT CHUNKS
+        embed = embed_data["embeds"][0]
+
+        if "fields" not in embed:
+            embed["fields"] = []
+
+        for index, chunk in enumerate(chunks):
+
+            embed["fields"].append({
+                "name": (
+                    "Event Text"
+                    if index == 0
+                    else ""
+                ),
+                "value": f"```txt\n{chunk}\n```",
+                "inline": False
+            })
+
+        parsed_events.append({
+            "number": number,
+            "embed": embed_data,
+            "metadata": event_data
         })
 
-    parsed_events.append({
-        "number": number,
-        "embed": embed_data,
-        "metadata": event_data
-    })
-
-
-del soup # cleap up
+    del soup # clean up
 
 # MARK: SENDING DATA
-for webhook_url in webhook_urls:
-    for inum, event in enumerate(parsed_events):
-        print(f"Sending event {event['number']}")
+def send_data():
+    for webhook_url in webhook_urls:
+        for inum, event in enumerate(parsed_events):
+            print(f"Sending event {event['number']}")
 
-        # Send embed
-        try:
-            response = requests.post(
-                webhook_url,
-                json=event["embed"]
-            )
+            # Send embed
+            try:
+                response = requests.post(
+                    webhook_url,
+                    json=event["embed"]
+                )
 
-            if response.status_code == 204:
-                print("Embed sent successfully.")
-            else:
-                print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
-                print(response.text)
+                if response.status_code == 204:
+                    print("Embed sent successfully.")
+                else:
+                    print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
+                    print(response.text)
 
-        except Exception as e:
-            print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
+            except Exception as e:
+                print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
 
-        if (inum + 1) != len(parsed_events):
-            sleep(SLEEP_TIME)
+            if (inum + 1) != len(parsed_events):
+                sleep(SLEEP_TIME)
+
+
+def main():
+    initialize_config()
+    get_webhook_urls()
+    fetch_data()
+    preprocess_data()
+    parse()
+    send_data()
+
+
+if __name__ == "__main__":
+    main()
