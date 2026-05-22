@@ -86,7 +86,7 @@ def fetch_data():
 
     print("Data fetched successfully.")
 
-    return sha256(data=response.text.encode(), usedforsecurity=False).hexdigest()
+    return sha256(response.text.encode(), usedforsecurity=False).hexdigest() # using data=... breaks on some systens
 
 
 # MARK: PARSING
