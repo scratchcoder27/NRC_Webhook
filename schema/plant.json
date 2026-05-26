@@ -1,0 +1,40 @@
+{
+  "embeds": [
+    {
+      "title": "Plant Event Report\nID:<number>",
+      "fields": [
+        {
+          "name": "Event Info",
+          "value": "```HQ operations officer: <hqofficer>```",
+          "inline": true
+        },
+        {
+          "name": "Location info",
+          "value": "```State: <state>\nRegion: <region>\n```",
+          "inline": true
+        },
+        {
+          "name": "Notification Info",
+          "value": "```Notification date: <notifyDate>\nNotification Time: <notifyTime>\nEvent Date: <eventDate>\nEvent Time: <eventTime>\nNRC Notified By: <personNotified>\n```",
+          "inline": false
+        },
+        {
+          "name": "Emergency Class",
+          "value": "```Emergency Class:<emergencyClass>\n10 CFR Section: <section>```",
+          "inline": false
+        },
+        {
+          "name": "Reactor Info",
+          "value": "```Facility: <facility>\nUnit: <unit>\nRX Type: <rxType>```"
+        },
+        {
+          "name": "Reactor Data Table",
+          "value": "```<reactorData>```"
+        }
+      ],
+      "footer": {
+        "text": "Report number <number>, posted on <notifyDate>"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+.venv/*
+.env
+src/__pycache__/*
+testingdata.txt
+profile_results
+src/state.json
+state.json
