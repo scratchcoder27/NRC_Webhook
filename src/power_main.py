@@ -36,7 +36,7 @@ import datamgmt
 WEBHOOK_URL_POWER = None
 webhook_urls = []
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
-BUFFER_SIZE = 1950 # discord has 2000 limit
+BUFFER_SIZE = 1970 # discord has 2000 limit
 WAIT_TIME = 2 #seconds
 TEST_MODE = False
 
@@ -107,7 +107,7 @@ def parse_data():
 def prepare_data():
     global buffer
     HEADER = (
-        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)*"
+        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)* {"**[TEST MODE]**" if TEST_MODE else ""}"
     )
 
     buffer = []

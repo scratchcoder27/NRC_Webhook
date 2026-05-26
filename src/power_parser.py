@@ -10,7 +10,12 @@ class Report:
         self.power = power
 
     def to_string(self, changed=False, previous_day_power=0):
-        power_color = COLOR_RED if self.power != "100" else COLOR_GREEN
+        if int(self.power) > 98:
+            power_color = COLOR_GREEN
+        elif int(self.power) < 1:
+            power_color = COLOR_RED
+        else:
+            power_color = COLOR_ORANGE
 
         bold_begin = COLOR_BOLD if changed else ""
         bold_end = f"{COLOR_RESET} {COLOR_CYAN}[original: {previous_day_power}]{COLOR_RESET}" if changed else ""
