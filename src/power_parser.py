@@ -18,7 +18,7 @@ class Report:
             power_color = COLOR_ORANGE
 
         bold_begin = COLOR_BOLD if changed else ""
-        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[original: {previous_day_power}]{COLOR_RESET}" if changed else ""
+        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[prev: {previous_day_power}]{COLOR_RESET}" if changed else ""
 
         return (
             f"{COLOR_CYAN}[{self.time}]{COLOR_RESET} "
