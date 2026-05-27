@@ -70,37 +70,42 @@ def initialize_config():
         webhook_urls.append(WEBHOOK_URL_POWER)
 
 
-# MARK: DATA FETCHING
-def fetch_data():
+# MARK: DATA FETCHING & PROCESSING
+def fetch_and_process_data():
     global response
     try:
         response = requests.get(POWER_URL)
-
         if response.status_code != 200:
             print(f"Failed to fetch power data: {response.status_code}")
             exit(1)
-
     except Exception as e:
         print(f"Error fetching data: {e}")
         exit(1)
 
     print("Data fetched successfully.")
 
-    return sha256(response.text.encode(), usedforsecurity=False).hexdigest() # using data=... breaks on some systens
+    response_lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+    if not response_lines:
+        return sha256(b"", usedforsecurity=False).hexdigest(), []
+
+    header = response_lines[0]
+    data_lines_sorted = sorted(response_lines[1:]) # sort it, just in case the data order is flipped
+    normalized_content = header + "\n" + "\n".join(data_lines_sorted) # join them again for the hash
+    
+    curr_hash = sha256(normalized_content.encode('utf-8'), usedforsecurity=False).hexdigest()
+
+    return curr_hash, response_lines
 
 
 # MARK: PARSING
-def parse_data():
+def parse_data(response_lines):
     global today_reports, yesterday_reports, current_day
-    response_lines = [line.strip() for line in response.text.splitlines()]
-
+    
     try:
         today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
     except Exception as e:
         print(f"Error parsing data: {e}")
         exit(1)
-
-    if response_lines:    del response_lines # free data
 
 
 # MARK: DATA PREPARATION
@@ -170,15 +175,19 @@ def send_data():
 def main(in_memory=False):
     datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
-    curr_hash = fetch_data()
-    parse_data()
+    
+    curr_hash, response_lines = fetch_and_process_data()
+    
     if not TEST_MODE:
         prev_hash = datamgmt.get_power_data()
-        if (prev_hash == curr_hash):
+        if prev_hash == curr_hash:
             print('No new data')
             return
         
         datamgmt.set_power_data(curr_hash)
+        
+    parse_data(response_lines)
+    
     prepare_data()
     send_data()
 
