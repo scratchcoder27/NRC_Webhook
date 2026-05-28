@@ -83,22 +83,14 @@ def fetch_and_process_data():
         exit(1)
 
     print("Data fetched successfully.")
-
-    response_lines = [line.strip() for line in response.text.splitlines() if line.strip()]
-    if not response_lines:
-        return sha256(b"", usedforsecurity=False).hexdigest(), []
-
-    header = response_lines[0]
-    data_lines_sorted = sorted(response_lines[1:]) # sort it, just in case the data order is flipped
-    normalized_content = header + "\n" + "\n".join(data_lines_sorted) # join them again for the hash
     
-    curr_hash = sha256(normalized_content.encode('utf-8'), usedforsecurity=False).hexdigest()
+    response_lines = [line.strip() for line in response.text.splitlines() if line.strip()]    
 
-    return curr_hash, response_lines
+    return response_lines
 
 
 # MARK: PARSING
-def parse_data(response_lines):
+def parse_data(response_lines) -> str:
     global today_reports, yesterday_reports, current_day
     
     try:
@@ -106,6 +98,9 @@ def parse_data(response_lines):
     except Exception as e:
         print(f"Error parsing data: {e}")
         exit(1)
+    
+    curr_hash = sha256(" ".join(sorted(today_reports)).encode('UTF-8')).hexdigest()
+    return curr_hash
 
 
 # MARK: DATA PREPARATION
@@ -176,7 +171,8 @@ def main(in_memory=False):
     datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
     
-    curr_hash, response_lines = fetch_and_process_data()
+    response_lines = fetch_and_process_data()
+    curr_hash = parse_data(response_lines)
     
     if not TEST_MODE:
         prev_hash = datamgmt.get_power_data()
@@ -185,8 +181,6 @@ def main(in_memory=False):
             return
         
         datamgmt.set_power_data(curr_hash)
-        
-    parse_data(response_lines)
     
     prepare_data()
     send_data()
