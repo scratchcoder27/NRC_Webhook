@@ -71,13 +71,13 @@ def initialize_config():
         with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
             facility_schema_str = f.read()
     except FileNotFoundError:
-        print("The facility report schema file does not exist")
+        raise Exception("The facility report schema file does not exist")
 
     try:
         with open("schema/plant.json", "r") as f:
             plant_schema_str = f.read()
     except FileNotFoundError:
-        print("The plant report schema file does not exist")
+        raise Exception("The plant report schema file does not exist")
 
 
 # MARK: GET WEBHOOK URLS
@@ -88,7 +88,7 @@ def get_webhook_urls():
             for item in WEBHOOK_URL_REPORT.split(","):
                 webhook_urls.append(item.strip())
         except Exception:
-            print("ERROR: Invalid formatting in WEBHOOK_URL_REPORT value in environment file")
+            raise Exception("ERROR: Invalid formatting in WEBHOOK_URL_REPORT value in environment file")
     else:
         webhook_urls.append(WEBHOOK_URL_REPORT)
 
@@ -128,11 +128,10 @@ def fetch_data():
         response = requests.get(URL)
         print("Successfully fetched data")
     except Exception as e:
-        print("Error while getting data: " + e)
+        raise Exception("Error while getting data: " + str(e))
 
     if response.status_code != 200:
-        print("Error while getting data, recieved status code " + str(response.status_code))
-        exit(1)
+        raise Exception("Error while getting data, recieved status code " + str(response.status_code))
 
 # MARK: PREPROCESS
 def preprocess_data():
@@ -343,8 +342,7 @@ def parse():
             try:
                 embed_data = json.loads(embed_str)
             except json.JSONDecodeError as e:
-                print("Error while parsing json after replacements:", e)
-                exit()
+                raise Exception(f"Error while parsing json after replacements: {e}")
             
             del embed_str
 
@@ -418,4 +416,8 @@ def main(in_memory=False):
 
 
 if __name__ == "__main__":
-    main(False)
+    try:
+        main(False) # was invoked directly or with actions
+    except Exception as e:
+        print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        exit(1)
