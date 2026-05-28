@@ -53,8 +53,7 @@ def initialize_config():
 
     WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
     if not WEBHOOK_URL_POWER:
-        print("WEBHOOK_URL_POWER not set in .env file.")
-        exit(1)
+        raise Exception("WEBHOOK_URL_POWER not set in .env file.")
     
     arg_string = (" ".join(argv)).lower()
     TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
@@ -65,7 +64,7 @@ def initialize_config():
             for item in WEBHOOK_URL_POWER.split(","):
                 webhook_urls.append(item.strip())
         except Exception:
-            print("ERROR: Invalid formatting in WEBHOOK_URL_POWER value in environment file")
+            raise Exception("Invalid formatting in WEBHOOK_URL_POWER value in environment file")
     else:
         webhook_urls.append(WEBHOOK_URL_POWER)
 
@@ -76,44 +75,39 @@ def fetch_and_process_data():
     try:
         response = requests.get(POWER_URL)
         if response.status_code != 200:
-            print(f"Failed to fetch power data: {response.status_code}")
-            exit(1)
+            raise Exception(f"Failed to fetch power data: {response.status_code}")
     except Exception as e:
-        print(f"Error fetching data: {e}")
-        exit(1)
+        raise Exception(f"Error fetching data: {e}")
 
     print("Data fetched successfully.")
-
-    response_lines = [line.strip() for line in response.text.splitlines() if line.strip()]
-    if not response_lines:
-        return sha256(b"", usedforsecurity=False).hexdigest(), []
-
-    header = response_lines[0]
-    data_lines_sorted = sorted(response_lines[1:]) # sort it, just in case the data order is flipped
-    normalized_content = header + "\n" + "\n".join(data_lines_sorted) # join them again for the hash
     
-    curr_hash = sha256(normalized_content.encode('utf-8'), usedforsecurity=False).hexdigest()
+    response_lines = [line.strip() for line in response.text.splitlines() if line.strip()]    
 
-    return curr_hash, response_lines
+    return response_lines
 
 
 # MARK: PARSING
-def parse_data(response_lines):
+def parse_data(response_lines) -> str:
     global today_reports, yesterday_reports, current_day
     
     try:
         today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
     except Exception as e:
-        print(f"Error parsing data: {e}")
-        exit(1)
+        raise Exception(f"Error parsing data: {e}")
+    
+    curr_hash = sha256(" ".join(sorted(today_reports)).encode('UTF-8')).hexdigest()
+    return curr_hash
 
 
 # MARK: DATA PREPARATION
 def prepare_data():
     global buffer
     HEADER = (
-        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)* {"**[TEST MODE]**" if TEST_MODE else ""}"
+        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)*"
     )
+
+    if TEST_MODE:
+        HEADER += " **[TEST MODE]**"
 
     buffer = []
 
@@ -169,14 +163,15 @@ def send_data():
 
                 sleep(WAIT_TIME)
         except Exception as e:
-            print(f"Error sending message: {e}")
+            raise Exception(f"Error sending message: {e}")
 
 
 def main(in_memory=False):
     datamgmt.set_in_memory_mode(in_memory)
     initialize_config()
     
-    curr_hash, response_lines = fetch_and_process_data()
+    response_lines = fetch_and_process_data()
+    curr_hash = parse_data(response_lines)
     
     if not TEST_MODE:
         prev_hash = datamgmt.get_power_data()
@@ -185,12 +180,14 @@ def main(in_memory=False):
             return
         
         datamgmt.set_power_data(curr_hash)
-        
-    parse_data(response_lines)
     
     prepare_data()
     send_data()
 
 
 if __name__ == "__main__":
-    main(False) # was invoked directly or with actions
+    try:
+        main(False) # was invoked directly or with actions
+    except Exception as e:
+        print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        exit(1)
