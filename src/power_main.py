@@ -53,8 +53,7 @@ def initialize_config():
 
     WEBHOOK_URL_POWER = getenv("WEBHOOK_URL_POWER")
     if not WEBHOOK_URL_POWER:
-        print("WEBHOOK_URL_POWER not set in .env file.")
-        exit(1)
+        raise Exception("WEBHOOK_URL_POWER not set in .env file.")
     
     arg_string = (" ".join(argv)).lower()
     TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
@@ -65,7 +64,7 @@ def initialize_config():
             for item in WEBHOOK_URL_POWER.split(","):
                 webhook_urls.append(item.strip())
         except Exception:
-            print("ERROR: Invalid formatting in WEBHOOK_URL_POWER value in environment file")
+            raise Exception("Invalid formatting in WEBHOOK_URL_POWER value in environment file")
     else:
         webhook_urls.append(WEBHOOK_URL_POWER)
 
@@ -76,11 +75,9 @@ def fetch_and_process_data():
     try:
         response = requests.get(POWER_URL)
         if response.status_code != 200:
-            print(f"Failed to fetch power data: {response.status_code}")
-            exit(1)
+            raise Exception(f"Failed to fetch power data: {response.status_code}")
     except Exception as e:
-        print(f"Error fetching data: {e}")
-        exit(1)
+        raise Exception(f"Error fetching data: {e}")
 
     print("Data fetched successfully.")
     
@@ -96,8 +93,7 @@ def parse_data(response_lines) -> str:
     try:
         today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
     except Exception as e:
-        print(f"Error parsing data: {e}")
-        exit(1)
+        raise Exception(f"Error parsing data: {e}")
     
     curr_hash = sha256(" ".join(sorted(today_reports)).encode('UTF-8')).hexdigest()
     return curr_hash
@@ -167,7 +163,7 @@ def send_data():
 
                 sleep(WAIT_TIME)
         except Exception as e:
-            print(f"Error sending message: {e}")
+            raise Exception(f"Error sending message: {e}")
 
 
 def main(in_memory=False):
@@ -190,4 +186,8 @@ def main(in_memory=False):
 
 
 if __name__ == "__main__":
-    main(False) # was invoked directly or with actions
+    try:
+        main(False) # was invoked directly or with actions
+    except Exception as e:
+        print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        exit(1)

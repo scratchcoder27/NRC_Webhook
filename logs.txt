@@ -1,0 +1,4 @@
+[2026-05-28 16:43:44] ERROR: WEBHOOK_URL_POWER not set in .env file.
+[2026-05-28 16:43:54] ERROR: WEBHOOK_URL_POWER not set in .env file.
+[2026-05-28 16:44:05] ERROR: WEBHOOK_URL_POWER not set in .env file.
+[2026-05-28 16:45:05] ERROR: WEBHOOK_URL_POWER not set in .env file.
