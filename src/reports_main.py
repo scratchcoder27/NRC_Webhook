@@ -131,7 +131,7 @@ def fetch_data():
         print("Error while getting data: " + e)
 
     if response.status_code != 200:
-        print("Error while getting data, recieved status code " + response.status_code)
+        print("Error while getting data, recieved status code " + str(response.status_code))
         exit(1)
 
 # MARK: PREPROCESS

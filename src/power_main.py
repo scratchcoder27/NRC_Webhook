@@ -107,8 +107,11 @@ def parse_data(response_lines) -> str:
 def prepare_data():
     global buffer
     HEADER = (
-        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)* {"**[TEST MODE]**" if TEST_MODE else ""}"
+        f"**Reactor Status for {current_day}** *(updated: <t:{int(time())}:R>)*"
     )
+
+    if TEST_MODE:
+        HEADER += " **[TEST MODE]**"
 
     buffer = []
 
