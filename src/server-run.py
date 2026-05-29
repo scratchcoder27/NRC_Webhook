@@ -54,7 +54,7 @@ def run():
             if LOGGING_FILE:
                 try:
                     with open("logs.txt", 'a') as f:
-                        f.write(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ERROR: {e}\n")
+                        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: {e}\n")
                 except Exception:
                     print("ERROR: Log file could not be accessed")
                     exit(1) # critical error
