@@ -59,8 +59,10 @@ def run():
                     print("ERROR: Log file could not be accessed")
                     exit(1) # critical error
         
-        sleep(10) # secs
-        run() # retry
+        sleep(60 * 5) # 5 mins
 
 if __name__ == "__main__":
-    run()
+    print("Starting server...")
+    print("Press Ctrl+C to stop.")
+    while True:
+        run()
