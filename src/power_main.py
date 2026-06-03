@@ -94,8 +94,8 @@ def parse_data(response_lines) -> str:
         today_reports, yesterday_reports, current_day = power_parser.parse_data(response_lines)
     except Exception as e:
         raise Exception(f"Error parsing data: {e}")
-    
-    curr_hash = sha256(" ".join(sorted(today_reports)).encode('UTF-8')).hexdigest()
+            
+    curr_hash = sha256((" ".join(sorted(today_reports)) + " " + str(current_day)).encode('UTF-8')).hexdigest()
     return curr_hash
 
 
