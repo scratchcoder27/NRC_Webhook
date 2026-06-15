@@ -37,13 +37,14 @@ import colors
 
 URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
+
+# MARK: GLOBALS
 DEBUG = False
 BUFFER_SIZE = 950 # discord has 1000 limit for embed fields
 SLEEP_TIME = 3 # secs
-
-# MARK: GLOBALS
 WEBHOOK_URL_REPORT = None
 TEST_MODE = False
+
 is_reactor_report = False
 facility_schema_str = ""
 plant_schema_str = ""
@@ -51,7 +52,6 @@ webhook_urls = []
 response = None
 doc_numbers = []
 parsed_events = []
-
 
 # MARK: CONFIG
 def initialize_config():
@@ -254,8 +254,11 @@ def parse():
 
             event_data[key] = value
         
+        
         if "RX Type" in event_data.keys():
             is_reactor_report = True
+        else:
+            is_reactor_report = False
         
         # MARK: extract reactor table
         if is_reactor_report:
@@ -289,7 +292,7 @@ def parse():
                         reactor_data.append(cols)
                 
             else:
-                print(f"Error: Failed finding reactor info table for event {number}")
+                print(f"{colors.TERMINAL_RED}  Error: Failed finding reactor info table for event {number}{colors.TERMINAL_RESET}")
 
         # MARK: extract text block
         try:

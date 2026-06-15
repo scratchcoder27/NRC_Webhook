@@ -17,12 +17,12 @@ class Report:
         else:
             power_color = COLOR_ORANGE
 
-        bold_begin = COLOR_BOLD if changed else ""
-        bold_end = f"{COLOR_RESET} {COLOR_CYAN}[prev: {previous_day_power}]{COLOR_RESET}" if changed else ""
+        bold_begin = f"{COLOR_UNDERLINE}{COLOR_BOLD}" if changed else ""
+        bold_end = f"{COLOR_RESET} {COLOR_BOLD}{COLOR_CYAN}[prev: {previous_day_power}%]{COLOR_RESET}" if changed else ""
 
         return (
             f"{COLOR_CYAN}[{self.time}]{COLOR_RESET} "
-            f"{COLOR_BLUE}{self.plant_name}{COLOR_RESET} : "
+            f"{COLOR_BLUE}{bold_begin}{self.plant_name}{COLOR_RESET} : "
             f"{bold_begin}{power_color}{self.power}%{bold_end}{COLOR_RESET}"
         )
 

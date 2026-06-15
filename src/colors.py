@@ -6,6 +6,7 @@ COLOR_BLUE = "\x1b[2;34m"
 COLOR_ORANGE = "\x1b[2;33m"
 
 COLOR_BOLD = "\x1b[1m"
+COLOR_UNDERLINE = "\x1B[4m"
 COLOR_RESET = "\x1b[0m"
 
 TERMINAL_RED = "\u001b[91m"
