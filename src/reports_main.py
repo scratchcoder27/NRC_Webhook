@@ -160,21 +160,16 @@ def preprocess_data():
         response.text
     )
 
-    doc_numbers_temp = doc_numbers.copy()
     if not (DEBUG or TEST_MODE):
-        docs_saved : dict = datamgmt.load_state()
-        for i, doc_num in enumerate(doc_numbers):
-            if (str(doc_num) in docs_saved):
-                    doc_numbers_temp[i] = None
-        
-        for i in range(doc_numbers_temp.count(None)):
-            doc_numbers_temp.remove(None)
+        docs_saved: dict = datamgmt.load_state()
+
+        doc_numbers_temp = [d for d in doc_numbers if str(d) not in docs_saved]
 
         print("Saved: " + str(doc_numbers_temp))
         datamgmt.add_docs(doc_numbers_temp)
 
-        doc_numbers = doc_numbers_temp.copy()
-        del doc_numbers_temp, docs_saved
+        doc_numbers = doc_numbers_temp
+        del docs_saved
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
@@ -225,17 +220,19 @@ def parse():
     text_blocks = soup.select("div.border")
     odd_text = text_blocks[1::2]
 
+    events_by_id = {
+        div["id"]: div
+        for div in soup.find_all("div", class_="grid border")
+        if div.get("id")
+    }
+
     for cycle, number in enumerate(doc_numbers):
 
         print("Processing event no:", number)
 
         event_data = {}
 
-        processing_event = soup.find(
-            "div",
-            id=f"en{number}",
-            class_="grid border"
-        )
+        processing_event = events_by_id.get(f"en{number}")
 
         if processing_event is None:
             print(f"Could not find event {number}")
