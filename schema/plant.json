@@ -2,6 +2,7 @@
   "embeds": [
     {
       "title": "Plant Event Report\nID:<number>",
+      "color": <accentcolor>,
       "fields": [
         {
           "name": "Event Info",

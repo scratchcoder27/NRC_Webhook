@@ -2,6 +2,7 @@
   "embeds": [
     {
       "title": "Facility Event Report\nID:<number>",
+      "color": <accentcolor>,
       "fields": [
         {
           "name": "Event Info",
