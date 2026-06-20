@@ -71,6 +71,8 @@ PLANT_COLORS = {
     "Unknown": 0x5D6D7E,                        # Warm Gray
 }
 
+# TODO: Session handling so that we don't connect every time we send the data
+
 # MARK: CONFIG
 def initialize_config():
     global WEBHOOK_URL_REPORT, TEST_MODE, facility_schema_str, plant_schema_str, webhook_urls

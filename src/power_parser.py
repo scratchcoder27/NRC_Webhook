@@ -35,10 +35,9 @@ def parse_data(lines: list) -> tuple:
     current_day_reports = {}
     previous_day_reports = {}
 
-    try:
-        for line in lines[1:]:  # skip header
+    for line in lines[1:]:  # skip header
+        try:
             data = line.split("|")
-
             date_time = data[0].split(" ")
 
             report = Report(
@@ -48,31 +47,27 @@ def parse_data(lines: list) -> tuple:
                 data[2]
             )
 
-            if current_day_str == None: # only the first one
+            if current_day_str is None:  # only the first one
                 current_day_str = report.date
                 try:
                     current_day = datetime.strptime(current_day_str, "%m/%d/%Y").date()
                     previous_day_str = (current_day - timedelta(days=1)).strftime("%-m/%-d/%Y")
                 except Exception:
                     print("Invalid date parsed: " + current_day_str)
-                
 
             if report.date == current_day_str:
                 current_day_reports[report.plant_name] = report
-
             elif report.date == previous_day_str:
                 previous_day_reports[report.plant_name] = report
-
-            elif report.date != current_day_str:
-                # once we're past previous_day we can stops
+            else:
+                # once we're past previous_day we can stop
                 if previous_day_reports:
                     break
-    
 
-    except Exception as e:
-        print(f"Error parsing line: {line}")
-        print(f"Data: {data}")
-        print(e)
+        except Exception as e:
+            print(f"Error parsing line: {line}")
+            print(f"Data: {data if 'data' in locals() else 'N/A'}")
+            print(e)
+            continue
 
-    
     return current_day_reports, previous_day_reports, current_day_str

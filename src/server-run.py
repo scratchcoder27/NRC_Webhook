@@ -11,29 +11,50 @@ CAUTIOUS_MODE = True # Save data after every run, recommended
 LOGGING_FILE = True
 EXIT_ON_ERROR = False
 
+
+def log_error(message: str):
+    if LOGGING_FILE:
+        try:
+            with open("logs.txt", 'a') as f:
+                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: {message}\n")
+        except Exception:
+            print("ERROR: Log file could not be accessed")
+
+
 async def task_power():
     while True:
-        # asyncio.to_thread offloads the blocking function to a separate thread,
-        await asyncio.to_thread(power_main.main, True)
-        if CAUTIOUS_MODE:
-            datamgmt.save_memory_to_disk()
+        try:
+            # asyncio.to_thread offloads the blocking function to a separate thread,
+            await asyncio.to_thread(power_main.main, True)
+            if CAUTIOUS_MODE:
+                datamgmt.save_memory_to_disk()
+        except Exception as e:
+            print(f"ERROR in task_power: {e}")
+            log_error(f"task_power: {e}")
         await asyncio.sleep(TIME_POWER)
+
 
 async def task_reports():
     while True:
-        await asyncio.to_thread(reports_main.main, True)
-        if CAUTIOUS_MODE:
-            datamgmt.save_memory_to_disk()
+        try:
+            await asyncio.to_thread(reports_main.main, True)
+            if CAUTIOUS_MODE:
+                datamgmt.save_memory_to_disk()
+        except Exception as e:
+            print(f"ERROR in task_reports: {e}")
+            log_error(f"task_reports: {e}")
         await asyncio.sleep(TIME_REPORT)
+
 
 async def main():
     # Explicitly turn on in-memory mode
     datamgmt.set_in_memory_mode(True)
-    
+
     await asyncio.gather(
         task_power(),
         task_reports()
     )
+
 
 def run():
     try:
@@ -41,7 +62,7 @@ def run():
 
     except KeyboardInterrupt:
         print("Exiting")
-        datamgmt.save_memory_to_disk() 
+        datamgmt.save_memory_to_disk()
         exit(0)
 
     except Exception as e:
@@ -51,15 +72,10 @@ def run():
             datamgmt.save_memory_to_disk() # minor chance of data corruption, might implement checking later
             exit(1)
         else:
-            if LOGGING_FILE:
-                try:
-                    with open("logs.txt", 'a') as f:
-                        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: {e}\n")
-                except Exception:
-                    print("ERROR: Log file could not be accessed")
-                    exit(1) # critical error
-        
+            log_error(str(e))
+
         sleep(60 * 5) # 5 mins
+
 
 if __name__ == "__main__":
     print("Starting server...")
