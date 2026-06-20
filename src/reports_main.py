@@ -53,6 +53,26 @@ response = None
 doc_numbers = []
 parsed_events = []
 
+FACILITY_COLORS = {
+    "Non Emergency": 0x2563EB,                  # Deep Blue
+    "Notification of Unusual Event": 0x0EA5A4,  # Teal
+    "Alert": 0x7C3AED,                          # Indigo
+    "Site Area Emergency": 0x9333EA,            # Violet
+    "General Emergency": 0x6D28D9,              # Deep Purple
+    "Unknown": 0x475569,                        # Cool Gray
+}
+
+PLANT_COLORS = {
+    "Non Emergency": 0x2B944D,                  # Dark Green
+    "Notification of Unusual Event": 0xB45309,  # Dark Amber
+    "Alert": 0xD97706,                          # Dark Orange
+    "Site Area Emergency": 0xC2410C,            # Burnt Orange
+    "General Emergency": 0x991B1B,              # Deep Red
+    "Unknown": 0x5D6D7E,                        # Warm Gray
+}
+
+# TODO: Session handling so that we don't connect every time we send the data
+
 # MARK: CONFIG
 def initialize_config():
     global WEBHOOK_URL_REPORT, TEST_MODE, facility_schema_str, plant_schema_str, webhook_urls
@@ -68,7 +88,7 @@ def initialize_config():
     TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
 
     try:
-        with open("schema/facility.json", "r") as f: # the programs supposed to be run from the outer directory
+        with open("schema/facility.json", "r") as f: # the programs are supposed to be run from the outer directory
             facility_schema_str = f.read()
     except FileNotFoundError:
         raise Exception("The facility report schema file does not exist")
@@ -142,21 +162,16 @@ def preprocess_data():
         response.text
     )
 
-    doc_numbers_temp = doc_numbers.copy()
     if not (DEBUG or TEST_MODE):
-        docs_saved : dict = datamgmt.load_state()
-        for i, doc_num in enumerate(doc_numbers):
-            if (str(doc_num) in docs_saved):
-                    doc_numbers_temp[i] = None
-        
-        for i in range(doc_numbers_temp.count(None)):
-            doc_numbers_temp.remove(None)
+        docs_saved: dict = datamgmt.load_state()
+
+        doc_numbers_temp = [d for d in doc_numbers if str(d) not in docs_saved]
 
         print("Saved: " + str(doc_numbers_temp))
         datamgmt.add_docs(doc_numbers_temp)
 
-        doc_numbers = doc_numbers_temp.copy()
-        del doc_numbers_temp, docs_saved
+        doc_numbers = doc_numbers_temp
+        del docs_saved
 
 # MARK: CHUNKER
 def chunk_lines(lines, max_size):
@@ -207,17 +222,19 @@ def parse():
     text_blocks = soup.select("div.border")
     odd_text = text_blocks[1::2]
 
+    events_by_id = {
+        div["id"]: div
+        for div in soup.find_all("div", class_="grid border")
+        if div.get("id")
+    }
+
     for cycle, number in enumerate(doc_numbers):
 
         print("Processing event no:", number)
 
         event_data = {}
 
-        processing_event = soup.find(
-            "div",
-            id=f"en{number}",
-            class_="grid border"
-        )
+        processing_event = events_by_id.get(f"en{number}")
 
         if processing_event is None:
             print(f"Could not find event {number}")
@@ -229,6 +246,9 @@ def parse():
             key = field.get_text(strip=True).replace(":", "")
 
             value = field.next_sibling
+
+            if  chr(65533) in value:
+                value = "" # data parsing error or wrong encoding
 
             if isinstance(value, str):
                 value = value.strip()
@@ -254,6 +274,7 @@ def parse():
 
             event_data[key] = value
         
+        # print(event_data)        
         
         if "RX Type" in event_data.keys():
             is_reactor_report = True
@@ -320,6 +341,9 @@ def parse():
             fields.append(("<state>", event_data["State"]))
             fields.append(("<region>", event_data["Region"]))
             fields.append(("<notifyDate>", event_data["Notification Date"]))
+
+            current_color_dict = PLANT_COLORS if is_reactor_report else FACILITY_COLORS
+            fields.append(("<accentcolor>", current_color_dict.get(event_data["Emergency Class"], 0x95A5A6)))
 
             if is_reactor_report:
                 fields.append(("<notifyTime>", event_data["Notification Time"]))

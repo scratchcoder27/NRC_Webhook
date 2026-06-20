@@ -121,14 +121,14 @@ def prepare_data():
     for plant_name, report in today_reports.items():
 
         changed = False
+        yesterday_power = report.power  # default: no prior data means "no change"
 
         if plant_name in yesterday_reports:
-            yesterday_report = yesterday_reports[plant_name]
-
-            if yesterday_report.power != report.power:
+            yesterday_power = yesterday_reports[plant_name].power
+            if yesterday_power != report.power:
                 changed = True
 
-        report_str = report.to_string(changed, yesterday_report.power)
+        report_str = report.to_string(changed, yesterday_power)
 
         if (len_string + len(report_str) + 1 + 4) > BUFFER_SIZE: # newline + three backticks
             buffer.append(string_payload + "\n```")
