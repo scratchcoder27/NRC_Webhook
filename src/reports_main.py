@@ -36,7 +36,7 @@ import colors
 # url = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
 
 URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en.html"
-
+# URL = url_test_reactor
 
 # MARK: GLOBALS
 DEBUG = False
@@ -212,15 +212,9 @@ def chunk_lines(lines, max_size):
 def parse():
     global is_reactor_report, parsed_events
     soup = BeautifulSoup(response.text, "lxml")
-    all_event = soup.find("div", class_="event-summary number text-center") 
-    # raw_doc_numbers = [anchor.text for anchor in all_event]
-    # doc_numbers=[numbers for numbers in raw_doc_numbers if numbers.isdigit()]
-    # print(doc_numbers)
+    all_event = soup.find("div", class_="event-summary number text-center")
 
     parsed_events = []
-
-    text_blocks = soup.select("div.border")
-    odd_text = text_blocks[1::2]
 
     events_by_id = {
         div["id"]: div
@@ -228,7 +222,7 @@ def parse():
         if div.get("id")
     }
 
-    for cycle, number in enumerate(doc_numbers):
+    for number in doc_numbers:
 
         print("Processing event no:", number)
 
@@ -247,7 +241,7 @@ def parse():
 
             value = field.next_sibling
 
-            if  chr(65533) in value:
+            if chr(65533) in value:
                 value = "" # data parsing error or wrong encoding
 
             if isinstance(value, str):
@@ -274,30 +268,33 @@ def parse():
 
             event_data[key] = value
         
-        # print(event_data)        
-        
+        # print(event_data)
+
         if "RX Type" in event_data.keys():
             is_reactor_report = True
         else:
             is_reactor_report = False
-        
+
+        table = None
+        reactor_data = []
+        text_tag = None
+
+        for sibling in processing_event.find_next_siblings(): # safer search, so that it doesn't overflow into next event
+            if sibling.name == "div" and "grid" in sibling.get("class", []) and "border" in sibling.get("class", []):
+                break
+
+            if sibling.name == "table" and table is None:
+                table = sibling
+                continue
+
+            if sibling.name == "div" and "border" in sibling.get("class", []) and "grid" not in sibling.get("class", []):
+                text_tag = sibling
+                break 
+
         # MARK: extract reactor table
         if is_reactor_report:
-            table = None
-            reactor_data = []
-            
-            for sibling in processing_event.find_next_siblings(): # made extra annoying by the fact that there can be mixed reports in one page
-                
-                # Stop searching if we hit the Event Text block or a new event block
-                if sibling.name == "div" and ("border" in sibling.get("class", []) or "grid" in sibling.get("class", [])):
-                    break 
-                    
-                if sibling.name == "table":
-                    table = sibling
-                    break
-            
             if table:
-                table_body = table.find("tbody")            
+                table_body = table.find("tbody")
                 reactor_data = []
                 
                 rows_source = table_body if table_body else table
@@ -311,14 +308,11 @@ def parse():
                             cols[i] = "Yes"
                     if cols:
                         reactor_data.append(cols)
-                
             else:
                 print(f"{colors.TERMINAL_RED}  Error: Failed finding reactor info table for event {number}{colors.TERMINAL_RESET}")
 
         # MARK: extract text block
-        try:
-            text_tag = odd_text[cycle]
-        except IndexError:
+        if text_tag is None:
             print(f"Missing text block for event {number}")
             continue
 
@@ -444,7 +438,7 @@ def main(in_memory=False):
 
 if __name__ == "__main__":
     try:
-        main(False) # was invoked directly or with actions
+        main(False) # was invoked directly or with (github) actions
     except Exception as e:
         print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
         exit(1)
