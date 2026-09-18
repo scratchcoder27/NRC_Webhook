@@ -13,8 +13,10 @@ _MEMORY_STATE = None
 _IS_DIRTY = False
 _STATE_LOCK = Lock()
 
-
 def set_in_memory_mode(enabled: bool):
+    """
+    Set if we save to file immediately whenever we send an update or just store that we updated it in memory (faster).
+    """
     global _IN_MEMORY_MODE, _MEMORY_STATE
     with _STATE_LOCK:
         _IN_MEMORY_MODE = enabled
@@ -23,6 +25,9 @@ def set_in_memory_mode(enabled: bool):
 
 
 def save_memory_to_disk():
+    """
+    save all sent updates to a file.
+    """
     global _MEMORY_STATE, _IS_DIRTY
     with _STATE_LOCK:
         if _MEMORY_STATE is not None and _IS_DIRTY:
@@ -62,10 +67,7 @@ def _write_file(full_state):
 def load_state():
     """
     Load state.json, clean expired report entries, and save the changes.
-    Returns *ONLY* the reportsData dict:
-        {
-            "12345": "2026-05-18T10:20:00+00:00"
-        }
+    Returns a copy of the reportsData dict
     """
     global _IS_DIRTY
     with _STATE_LOCK:
@@ -80,7 +82,6 @@ def load_state():
             if datetime.fromisoformat(timestamp) > cutoff
         }
 
-        # If we filtered anything out, save the cleaned state back to disk
         if len(cleaned_reports) != len(reports):
             full_state["reportsData"] = cleaned_reports
             if _IN_MEMORY_MODE:
@@ -88,7 +89,7 @@ def load_state():
             else:
                 _write_file(full_state)
 
-        return cleaned_reports
+        return cleaned_reports.copy()
 
 
 def save_state(reports_data):
