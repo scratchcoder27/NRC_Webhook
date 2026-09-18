@@ -103,6 +103,7 @@ def initialize_config():
 # MARK: GET WEBHOOK URLS
 def get_webhook_urls():
     global webhook_urls
+    webhook_urls.clear()
     if "," in WEBHOOK_URL_REPORT:
         try:
             for item in WEBHOOK_URL_REPORT.split(","):

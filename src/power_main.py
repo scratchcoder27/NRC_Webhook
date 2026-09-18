@@ -34,7 +34,6 @@ import datamgmt
 # MARK: GLOBALS
 
 WEBHOOK_URL_POWER = None
-webhook_urls = []
 POWER_URL = "https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/PowerReactorStatusForLast365Days.txt"
 BUFFER_SIZE = 1970 # discord has 2000 limit
 WAIT_TIME = 2 #seconds
@@ -45,6 +44,7 @@ today_reports = {}
 yesterday_reports = {}
 current_day = ""
 buffer = []
+webhook_urls = []
 
 # MARK: CONFIG
 def initialize_config():
@@ -55,10 +55,11 @@ def initialize_config():
     if not WEBHOOK_URL_POWER:
         raise Exception("WEBHOOK_URL_POWER not set in .env file.")
     
-    arg_string = (" ".join(argv)).lower()
-    TEST_MODE = (("-test" in arg_string) or ("-t" in arg_string))
+    argv_lower = [arg.lower() for arg in argv]
+    TEST_MODE = ("-test" in argv_lower) or ("-t" in argv_lower)
 
     # MARK: GET WEBHOOK URLS
+    webhook_urls.clear() # if we were running from server_run, this was never cleared, so urls would pile up
     if "," in WEBHOOK_URL_POWER:
         try:
             for item in WEBHOOK_URL_POWER.split(","):
@@ -95,7 +96,14 @@ def parse_data(response_lines) -> str:
     except Exception as e:
         raise Exception(f"Error parsing data: {e}")
             
-    curr_hash = sha256((" ".join(sorted(today_reports)) + " " + str(current_day)).encode('UTF-8')).hexdigest()
+    hash_input = " ".join(
+        f"{plant}:{report.date}:{report.time}:{report.plant_name}:{report.power}"
+        for plant, report in sorted(today_reports.items())
+    ) #could probably have made Report have a __str__ method, which might have been better
+    hash_input += " " + str(current_day)
+
+    curr_hash = sha256(hash_input.encode("UTF-8")).hexdigest()
+
     return curr_hash
 
 
@@ -178,11 +186,12 @@ def main(in_memory=False):
         if prev_hash == curr_hash:
             print('No new data')
             return
-        
-        datamgmt.set_power_data(curr_hash)
     
     prepare_data()
     send_data()
+
+    if not TEST_MODE:
+        datamgmt.set_power_data(curr_hash) # NOTE: if chnk 1 succeeds, while chnk2 fails, both will be resent next time
 
 
 if __name__ == "__main__":
