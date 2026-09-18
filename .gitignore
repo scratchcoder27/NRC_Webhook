@@ -6,3 +6,4 @@ profile_results
 src/state.json
 state.json
 logs.txt
+logging/*
