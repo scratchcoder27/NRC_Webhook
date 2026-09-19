@@ -29,6 +29,9 @@ from sys import exit, argv
 import datamgmt
 import colors
 
+import logging
+logger = logging.getLogger(__name__)
+
 # tests:
 # url_test = "https://web.archive.org/web/20251215120022/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
 # url_test2 = "https://web.archive.org/web/20231118072408/https://www.nrc.gov/reading-rm/doc-collections/event-status/event/en"
@@ -81,6 +84,7 @@ def initialize_config():
         load_dotenv()
     except Exception:
         print("No env file found, continuing...")
+        logging.debug("No env file found, continuing...")
 
     WEBHOOK_URL_REPORT = getenv("WEBHOOK_URL_REPORT")
 
@@ -145,9 +149,9 @@ def format_table(data: list) -> str:
 def fetch_data():
     global response
     try:
-        print("Fetching data...")
+        logging.debug("Fetching data...")
         response = requests.get(URL)
-        print("Successfully fetched data")
+        logging.debug("Successfully fetched data")
     except Exception as e:
         raise Exception("Error while getting data: " + str(e))
 
@@ -168,7 +172,7 @@ def preprocess_data():
 
         doc_numbers_temp = [d for d in doc_numbers if str(d) not in docs_saved]
 
-        print("Saved: " + str(doc_numbers_temp))
+        logging.debug("Saved: " + str(doc_numbers_temp))
         datamgmt.add_docs(doc_numbers_temp)
 
         doc_numbers = doc_numbers_temp
@@ -225,14 +229,14 @@ def parse():
 
     for number in doc_numbers:
 
-        print("Processing event no:", number)
+        logging.debug("Processing event no:", number)
 
         event_data = {}
 
         processing_event = events_by_id.get(f"en{number}")
 
         if processing_event is None:
-            print(f"Could not find event {number}")
+            logging.error(f"Could not find event {number}")
             continue
 
         # MARK: extract fields
@@ -311,10 +315,12 @@ def parse():
                         reactor_data.append(cols)
             else:
                 print(f"{colors.TERMINAL_RED}  Error: Failed finding reactor info table for event {number}{colors.TERMINAL_RESET}")
+                logging.error(f"Error: Failed finding reactor info table for event {number}")
 
         # MARK: extract text block
         if text_tag is None:
             print(f"Missing text block for event {number}")
+            logging.error(f"Missing text block for event {number}")
             continue
 
         text = text_tag.get_text("\n", strip=True)
@@ -370,6 +376,7 @@ def parse():
 
         except KeyError as e:
             print(f"{colors.TERMINAL_RED}  Malformed event data: missing {e}{colors.TERMINAL_RESET}")
+            logging.exception("Malformed event data")
             continue
 
         # MARK: INSERT CHUNKS
@@ -402,7 +409,7 @@ def parse():
 def send_data():
     for webhook_url in webhook_urls:
         for inum, event in enumerate(parsed_events):
-            print(f"Sending event {event['number']}")
+            logger.info(f"Sending event {event['number']}")
 
             # Send embed
             try:
@@ -412,13 +419,15 @@ def send_data():
                 )
 
                 if response.status_code == 204:
-                    print("Embed sent successfully.")
+                    logger.info("Embed sent successfully.")
                 else:
                     print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
-                    print(response.text)
+                    logger.error(f"Embed failed: {response.status_code}")
+                    logger.error(response.text)
 
             except Exception as e:
                 print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
+                logger.exception("Error sending embed")
 
             if (inum + 1) != len(parsed_events):
                 sleep(SLEEP_TIME)
@@ -431,7 +440,7 @@ def main(in_memory=False):
     fetch_data()
     preprocess_data()
     if len(doc_numbers) < 1:
-        print("No events since last run, exiting")
+        logger.info("No events since last run, exiting")
         return
     parse()
     send_data()
@@ -442,4 +451,5 @@ if __name__ == "__main__":
         main(False) # was invoked directly or with (github) actions
     except Exception as e:
         print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        logger.exception("ERROR " + str(e))
         exit(1)

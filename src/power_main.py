@@ -31,6 +31,9 @@ from sys import argv
 import colors
 import datamgmt
 
+import logging
+logger = logging.getLogger(__name__)
+
 # MARK: GLOBALS
 
 WEBHOOK_URL_POWER = None
@@ -164,10 +167,10 @@ def send_data():
                 post_response = requests.post(url, json=payload)
 
                 if post_response.status_code == 204:
-                    print("Packet sent successfully.")
+                    logging.debug("Packet sent successfully.")
                 else:
-                    print(f"Failed: {post_response.status_code}")
-                    print(post_response.text)
+                    logging.error(f"Failed: {post_response.status_code}")
+                    logging.error(post_response.text)
 
                 sleep(WAIT_TIME)
         except Exception as e:
@@ -193,10 +196,10 @@ def main(in_memory=False):
     if not TEST_MODE:
         datamgmt.set_power_data(curr_hash) # NOTE: if chnk 1 succeeds, while chnk2 fails, both will be resent next time
 
-
 if __name__ == "__main__":
     try:
         main(False) # was invoked directly or with actions
     except Exception as e:
         print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        logging.exception("Error in Power main script")
         exit(1)

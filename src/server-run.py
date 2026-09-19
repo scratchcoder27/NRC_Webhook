@@ -1,25 +1,20 @@
 import asyncio
 import power_main
+import logging
 import reports_main
 import datamgmt
 from datetime import datetime
 from time import sleep
+
+import logging_setup
+logging_setup.setup_logging()
+logger = logging.getLogger(__name__)
 
 TIME_POWER = 2 * 60 * 60 # every 2 hrs
 TIME_REPORT = 4 * 60 * 60 + 20 # every 4 hrs and 20 secs (this is done to prevent accidental synchronisation causing lag spikes)
 CAUTIOUS_MODE = True # Save data after every run, recommended
 LOGGING_FILE = True
 EXIT_ON_ERROR = False
-
-
-def log_error(message: str):
-    if LOGGING_FILE:
-        try:
-            with open("logs.txt", 'a') as f:
-                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: {message}\n")
-        except Exception:
-            print("ERROR: Log file could not be accessed")
-
 
 async def task_power():
     while True:
@@ -30,7 +25,7 @@ async def task_power():
                 datamgmt.save_memory_to_disk()
         except Exception as e:
             print(f"ERROR in task_power: {e}")
-            log_error(f"task_power: {e}")
+            logger.exception(f"ERROR in task_power")
         await asyncio.sleep(TIME_POWER)
 
 
@@ -42,7 +37,7 @@ async def task_reports():
                 datamgmt.save_memory_to_disk()
         except Exception as e:
             print(f"ERROR in task_reports: {e}")
-            log_error(f"task_reports: {e}")
+            logger.exception(f"ERROR in task_reports")
         await asyncio.sleep(TIME_REPORT)
 
 
@@ -61,7 +56,7 @@ def run():
         asyncio.run(main())
 
     except KeyboardInterrupt:
-        print("Exiting")
+        print("\nExiting")
         datamgmt.save_memory_to_disk()
         exit(0)
 
@@ -72,13 +67,14 @@ def run():
             datamgmt.save_memory_to_disk() # minor chance of data corruption, might implement checking later
             exit(1)
         else:
-            log_error(str(e))
+            logger.exception("Error while saving current data")
 
         sleep(60 * 5) # 5 mins
 
 
 if __name__ == "__main__":
     print("Starting server...")
+    logger.info("Server run start")
     print("Press Ctrl+C to stop.")
     while True:
         run()
