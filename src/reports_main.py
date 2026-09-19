@@ -409,7 +409,7 @@ def parse():
 def send_data():
     for webhook_url in webhook_urls:
         for inum, event in enumerate(parsed_events):
-            print(f"Sending event {event['number']}")
+            logger.info(f"Sending event {event['number']}")
 
             # Send embed
             try:
@@ -419,13 +419,15 @@ def send_data():
                 )
 
                 if response.status_code == 204:
-                    print("Embed sent successfully.")
+                    logger.info("Embed sent successfully.")
                 else:
                     print(f"{colors.TERMINAL_RED} Embed failed: {response.status_code} {colors.TERMINAL_RESET}")
-                    print(response.text)
+                    logger.error(f"Embed failed: {response.status_code}")
+                    logger.error(response.text)
 
             except Exception as e:
                 print(f"{colors.TERMINAL_RED} Error sending embed: {e}{colors.TERMINAL_RESET}")
+                logger.exception("Error sending embed")
 
             if (inum + 1) != len(parsed_events):
                 sleep(SLEEP_TIME)
@@ -438,7 +440,7 @@ def main(in_memory=False):
     fetch_data()
     preprocess_data()
     if len(doc_numbers) < 1:
-        print("No events since last run, exiting")
+        logger.info("No events since last run, exiting")
         return
     parse()
     send_data()
@@ -449,4 +451,5 @@ if __name__ == "__main__":
         main(False) # was invoked directly or with (github) actions
     except Exception as e:
         print(f"{colors.TERMINAL_RED}ERROR: {e}{colors.TERMINAL_RESET}")
+        logger.exception("ERROR " + str(e))
         exit(1)

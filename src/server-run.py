@@ -56,7 +56,7 @@ def run():
         asyncio.run(main())
 
     except KeyboardInterrupt:
-        print("Exiting")
+        print("\nExiting")
         datamgmt.save_memory_to_disk()
         exit(0)
 
